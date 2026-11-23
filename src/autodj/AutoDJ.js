@@ -1,11 +1,12 @@
 import { TrackSelector } from './TrackSelector.js';
 import { TransitionEngine } from './TransitionEngine.js';
+import { TransitionAI } from './TransitionAI.js';
 
 export class AutoDJ {
   constructor({ decks, mixer, getTracks, onState, onActiveDeck }) {
     this.decks = decks; this.mixer = mixer; this.getTracks = getTracks;
     this.onState = onState; this.onActiveDeck = onActiveDeck;
-    this.selector = new TrackSelector(); this.active = 'A'; this.enabled = false;
+    this.selector = new TrackSelector(); this.transitionAI = new TransitionAI(); this.active = 'A'; this.enabled = false;
     this.transitioning = false; this.history = [];
     this.transitions = new TransitionEngine(mixer, decks, (from, to) => {
       this.active = to; this.transitioning = false;
@@ -64,7 +65,9 @@ export class AutoDJ {
     const fallbackDue = remaining <= 10;
     if (phraseDue || fallbackDue) {
       this.transitioning = true;
-      const ok = await this.transitions.transition(this.active, nextId, Math.min(12, Math.max(5, remaining)));
+      const plan = this.transitionAI.choose(current.track, this.decks[nextId].track);
+      this.onTransition?.(plan);
+      const ok = await this.transitions.transition(this.active, nextId, Math.min(12, Math.max(5, remaining)), plan);
       if (!ok) this.transitioning = false;
     }
   }
