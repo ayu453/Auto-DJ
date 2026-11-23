@@ -30,7 +30,7 @@ export class TransitionAI {
     const explore=Math.random()<this.exploration;
     const pool=explore?candidates.slice(0,4):candidates.slice(0,1);
     const picked=pool[Math.floor(Math.random()*pool.length)];
-    const cue= picked.style==='drop-blend'&&drop ? drop.start : Math.max(0,Number(to?.structure?.introEnd)||0);
+    const cue= picked.style==='drop-blend'&&drop ? drop.start : 0;
     const beat= b?60/b:0;
     const alignedCue=beat?Math.max(0,Math.round(cue/beat)*beat):cue;
     return {
