@@ -1,41 +1,72 @@
-import {storage,makeId} from './storage.js';
-import {AudioMixer,analyzeFile} from './audio.js';
-const $=(s,r=document)=>r.querySelector(s);
-const fmt=s=>{if(!Number.isFinite(s))return '0:00';const m=Math.floor(s/60),sec=Math.floor(s%60);return m+':'+String(sec).padStart(2,'0');};
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function titleFrom(name){return name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').trim();}
-export function mountApp(root){
-root.innerHTML=`<main class="shell">
-<header class="topbar"><div class="brand"><div class="logo">A</div><div><h1>AUTO DJ</h1><small>V2.0 · AUTOMATIC MIXING SYSTEM</small></div></div><div class="status"><i class="dot"></i><span id="systemStatus">SYSTEM READY</span></div></header>
-<section class="hero"><div><div class="eyebrow">AI-FREE DJ AUTOMATION</div><h2>Your music. One continuous mix.</h2><p>Load your local library, set your mix preferences and let AUTO DJ take over.</p></div><div class="auto-state" id="autoState">● AUTO DJ STANDBY</div></section>
-<section class="decks">
-${['A','B'].map(id=>`<article class="panel deck" id="deck${id}"><div class="deck-head"><span class="deck-name">DECK ${id}</span><span class="deck-state" id="state${id}">EMPTY</span></div><div class="track-title" id="title${id}">No track loaded</div><div class="track-sub" id="artist${id}">Add music to your library</div><div class="wave" id="wave${id}"></div><div class="progress"><i id="progress${id}"></i></div><div class="time-row"><span id="elapsed${id}">0:00</span><span id="duration${id}">0:00</span></div><div class="controls"><button class="btn iconbtn" data-action="cue" data-deck="${id}" title="Return to start">↶</button><button class="btn iconbtn primary" data-action="play" data-deck="${id}" title="Play / pause">▶</button><button class="btn iconbtn" data-action="stop" data-deck="${id}" title="Stop">■</button></div><div class="knobs"><div class="control"><label>LOW EQ <span id="lowVal${id}">0 dB</span></label><input type="range" min="-12" max="12" value="0" data-eq="0" data-deck="${id}"></div><div class="control"><label>MID EQ <span id="midVal${id}">0 dB</span></label><input type="range" min="-12" max="12" value="0" data-eq="1" data-deck="${id}"></div><div class="control"><label>HIGH EQ <span id="highVal${id}">0 dB</span></label><input type="range" min="-12" max="12" value="0" data-eq="2" data-deck="${id}"></div></div></article>`).join('')}
-</section>
-<section class="panel mixer"><div><div class="mix-title">MASTER OUTPUT</div><div class="mix-control"><label>MASTER LEVEL <span id="masterVal">80%</span></label><input id="master" type="range" min="0" max="100" value="80"></div></div><div><div class="mix-title">CROSSFADER</div><div class="cross-wrap"><span>DECK A</span><input id="crossfader" type="range" min="0" max="100" value="50"><span>DECK B</span></div></div><div class="mix-actions"><button class="btn primary" id="startAuto">▶ START AUTO DJ</button><button class="btn" id="stopAuto">STOP AUTO</button></div></section>
-<section class="panel library"><div class="library-head"><div><h3> MUSIC LIBRARY <span id="trackCount" class="muted">(0 tracks)</span></h3><small class="muted">Stored locally in this browser</small></div><div class="library-actions"><input id="search" class="search" placeholder="Search tracks…"><label class="btn primary" for="filePicker">＋ ADD MUSIC</label><input id="filePicker" class="file-input" type="file" accept="audio/*" multiple><button class="btn" id="shuffle">SHUFFLE</button></div></div><div class="track-list" id="trackList"><div class="empty">Your library is empty. Add local audio files to get started.</div></div><div class="notice">Audio files stay on this device using IndexedDB. BPM is estimated with a conventional signal-analysis algorithm and may need manual correction. Spotify is not used as an audio input; use local files for mixing.</div></section>
-</main><div id="toast" hidden class="toast"></div>`;
-const mixer=new AudioMixer();let tracks=[],queue=[],active='A',auto=false,transitioning=false,shuffle=false,lastToast;
-const deck=id=>mixer.decks[id];
-function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(lastToast);lastToast=setTimeout(()=>t.hidden=true,2600);}
-function status(s){$('#systemStatus').textContent=s;}
-function renderLibrary(){const q=$('#search').value.toLowerCase();const visible=tracks.filter(t=>(t.name+' '+(t.artist||'')).toLowerCase().includes(q));$('#trackCount').textContent='('+tracks.length+' tracks)';$('#trackList').innerHTML=visible.length?visible.map((t,i)=>`<div class="track-row"><div class="track-index">${i+1}</div><div class="track-info"><strong>${esc(t.name)}</strong><small>${esc(t.artist||t.fileName||'Local audio')} · Added ${new Date(t.addedAt).toLocaleDateString()}</small></div><div class="track-meta">${t.bpm?t.bpm+' BPM':'— BPM'}</div><div class="track-meta">${fmt(t.duration||0)}</div><div class="row-actions"><button class="tiny" data-load="A" data-id="${t.id}">LOAD A</button><button class="tiny" data-load="B" data-id="${t.id}">LOAD B</button><button class="tiny" data-delete="${t.id}">×</button></div></div>`).join(''):'<div class="empty">No matching tracks.</div>';}
-function drawWave(id){const el=$('#wave'+id);el.innerHTML='';for(let i=0;i<70;i++){const b=document.createElement('i');b.className='wavebar';const h=8+Math.abs(Math.sin(i*2.17)*Math.cos(i*.31))*42;b.style.cssText=`left:${i/70*100}%;height:${h}px`;el.append(b);}}
-function updateDeck(id){const d=deck(id),t=d.track;$('#title'+id).textContent=t?.name||'No track loaded';$('#artist'+id).textContent=t?(t.artist||t.fileName||'Local audio'):'Add music to your library';$('#state'+id).textContent=d.playing?'PLAYING':t?'LOADED':'EMPTY';$('#duration'+id).textContent=fmt(d.duration||t?.duration||0);$('#elapsed'+id).textContent=fmt(d.currentTime);$('#progress'+id).style.width=d.duration?d.currentTime/d.duration*100+'%':'0%';const p=$(`#deck${id} [data-action="play"]`);if(p)p.textContent=d.playing?'Ⅱ':'▶';}
-async function loadTrack(id,t){await mixer.resume();deck(id).load(t);drawWave(id);updateDeck(id);status('TRACK LOADED');}
-async function addFiles(files){for(const file of files){if(!file.type.startsWith('audio/')&&!/\.(mp3|wav|flac|m4a|aac|ogg|opus|aiff?)$/i.test(file.name))continue;try{const info=await analyzeFile(file);const track={id:makeId(),name:titleFrom(file.name),fileName:file.name,artist:'',blob:file,duration:info.duration,bpm:info.bpm,addedAt:Date.now()};await storage.putTrack(track);tracks.push(track);}catch(e){console.error(e);toast('Could not read '+file.name);}}renderLibrary();toast('Music added to your library');}
-function chooseNext(exclude){const blocked=new Set(Array.isArray(exclude)?exclude:[exclude]);const candidates=tracks.filter(t=>!blocked.has(t.id));if(!candidates.length)return null;if(shuffle)return candidates[Math.floor(Math.random()*candidates.length)];const current=deck(active).track;const bpm=current?.bpm||0;return candidates.sort((a,b)=>{const da=bpm&&a.bpm?Math.abs(a.bpm-bpm):99,db=bpm&&b.bpm?Math.abs(b.bpm-bpm):99;return da-db;})[0];}
-async function startAuto(){if(tracks.length<2){toast('Add at least two tracks to start Auto DJ');return;}await mixer.resume();auto=true;transitioning=false;$('#autoState').textContent='● AUTO DJ ACTIVE';status('AUTOMIX RUNNING');let d=deck(active);if(!d.track){const first=tracks[Math.floor(Math.random()*tracks.length)];await loadTrack(active,first);await d.play();updateDeck(active);}const other=active==='A'?'B':'A';if(!deck(other).track){const next=chooseNext(d.track?.id);if(next)await loadTrack(other,next);}toast('AUTO DJ is running');}
-function stopAuto(){auto=false;transitioning=false;$('#autoState').textContent='● AUTO DJ STANDBY';status('SYSTEM READY');toast('Auto DJ stopped');}
-async function beginTransition(){if(!auto||transitioning)return;const from=active,to=active==='A'?'B':'A',old=deck(from),next=deck(to);if(!old.track||!next.track){const pick=chooseNext(old.track?.id);if(!pick){stopAuto();return;}await loadTrack(to,pick);}if(!next.track)return;transitioning=true;await mixer.resume();if(next.currentTime===0)await next.play();const seconds=Math.min(12,Math.max(5,old.duration-old.currentTime));const start=mixer.crossfader,target=to==='B'?1:0;const steps=60,delay=seconds*1000/steps;let n=0;const tick=()=>{if(!auto){transitioning=false;return;}n++;mixer.setCrossfader(start+(target-start)*n/steps);if(n<steps)setTimeout(tick,delay);else{old.stop();active=to;transitioning=false;updateDeck(from);updateDeck(to);const pick=chooseNext([next.track?.id,old.track?.id]);if(pick)loadTrack(from,pick);}};tick();}
-function tick(){for(const id of ['A','B'])updateDeck(id);if(auto&&!transitioning){const d=deck(active);if(d.track&&d.duration&&d.duration-d.currentTime<=Math.min(18,d.duration*.22)){const other=active==='A'?'B':'A';if(deck(other).track)beginTransition();else{const n=chooseNext(d.track.id);if(n)loadTrack(other,n).then(beginTransition);else stopAuto();}}}requestAnimationFrame(tick);}
-root.addEventListener('click',async e=>{const load=e.target.closest('[data-load]');if(load){const t=tracks.find(x=>x.id===load.dataset.id);if(t)await loadTrack(load.dataset.load,t);return;}const del=e.target.closest('[data-delete]');if(del){await storage.deleteTrack(del.dataset.delete);tracks=tracks.filter(t=>t.id!==del.dataset.delete);renderLibrary();return;}const act=e.target.closest('[data-action]');if(act){const d=deck(act.dataset.deck);await mixer.resume();if(act.dataset.action==='play'){if(d.playing)d.pause();else if(d.track)await d.play();else toast('Load a track first');}if(act.dataset.action==='stop')d.stop();if(act.dataset.action==='cue')d.setCurrentTime(0);updateDeck(act.dataset.deck);}});
-$('#filePicker').addEventListener('change',e=>{addFiles([...e.target.files]);e.target.value='';});
-$('#search').addEventListener('input',renderLibrary);
-$('#crossfader').addEventListener('input',e=>mixer.setCrossfader(+e.target.value/100));
-$('#master').addEventListener('input',e=>{mixer.setMaster(+e.target.value/100);$('#masterVal').textContent=e.target.value+'%';});
-root.querySelectorAll('[data-eq]').forEach(el=>el.addEventListener('input',()=>{const id=el.dataset.deck,band=+el.dataset.eq,v=+el.value;deck(id).setEQ(band,v);$('#'+['lowVal','midVal','highVal'][band]+id).textContent=v+' dB';}));
-$('#startAuto').addEventListener('click',startAuto);$('#stopAuto').addEventListener('click',stopAuto);$('#shuffle').addEventListener('click',()=>{shuffle=!shuffle;storage.putSetting('shuffle',shuffle).catch(console.error);$('#shuffle').textContent=shuffle?'SHUFFLE ON':'SHUFFLE';toast(shuffle?'Shuffle enabled':'BPM matching priority enabled');});
-(async()=>{try{tracks=await storage.getAllTracks();tracks.sort((a,b)=>a.addedAt-b.addedAt);renderLibrary();const s=await storage.getSetting('shuffle');shuffle=!!s?.value;}catch(e){console.error(e);toast('Browser storage unavailable. Use a modern browser with site storage enabled.');}})();
-requestAnimationFrame(tick);
-window.addEventListener('beforeunload',()=>mixer.destroy());
+import { AudioEngine } from './audio/AudioEngine.js';
+import { Deck } from './audio/Deck.js';
+import { Mixer } from './audio/Mixer.js';
+import { AutoDJ } from './autodj/AutoDJ.js';
+import { MusicLibrary } from './library/MusicLibrary.js';
+import { storage } from './library/Storage.js';
+import { renderWaveform } from './components/Waveform.js';
+import { updateDeckUI } from './components/DeckUI.js';
+import { renderLibrary } from './components/LibraryUI.js';
+
+const $ = (selector, root = document) => root.querySelector(selector);
+const esc = value => String(value ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+export function mountApp(root) {
+  root.innerHTML = `<main class="shell">
+    <header class="topbar"><div class="brand"><div class="logo">A</div><div><h1>AUTO DJ</h1><small>V2.0 · MODULAR AUTOMATIC MIXING SYSTEM</small></div></div><div class="status"><i class="dot"></i><span id="systemStatus">SYSTEM READY</span></div></header>
+    <section class="hero"><div><div class="eyebrow">AI-FREE DJ AUTOMATION</div><h2>Your music. One continuous mix.</h2><p>Load your local library, set your mix preferences and let AUTO DJ take over.</p></div><div class="auto-state" id="autoState">● AUTO DJ STANDBY</div></section>
+    <section class="decks">${['A','B'].map(id => `<article class="panel deck" id="deck${id}"><div class="deck-head"><span class="deck-name">DECK ${id}</span><span class="deck-state" id="state${id}">EMPTY</span></div><div class="track-title" id="title${id}">No track loaded</div><div class="track-sub" id="artist${id}">Add music to your library</div><div class="wave" id="wave${id}"></div><div class="progress"><i id="progress${id}"></i></div><div class="time-row"><span id="elapsed${id}">0:00</span><span id="duration${id}">0:00</span></div><div class="controls"><button class="btn iconbtn" data-action="cue" data-deck="${id}" title="Return to start">↶</button><button class="btn iconbtn primary" data-action="play" data-deck="${id}" title="Play / pause">▶</button><button class="btn iconbtn" data-action="stop" data-deck="${id}" title="Stop">■</button></div><div class="knobs">${['LOW','MID','HIGH'].map((band,i)=>`<div class="control"><label>${band} EQ <span id="${band.toLowerCase()}Val${id}">0 dB</span></label><input type="range" min="-12" max="12" value="0" data-eq="${i}" data-deck="${id}"></div>`).join('')}</div></article>`).join('')}</section>
+    <section class="panel mixer"><div><div class="mix-title">MASTER OUTPUT</div><div class="mix-control"><label>MASTER LEVEL <span id="masterVal">80%</span></label><input id="master" type="range" min="0" max="100" value="80"></div></div><div><div class="mix-title">CROSSFADER</div><div class="cross-wrap"><span>DECK A</span><input id="crossfader" type="range" min="0" max="100" value="50"><span>DECK B</span></div></div><div class="mix-actions"><button class="btn primary" id="startAuto">▶ START AUTO DJ</button><button class="btn" id="stopAuto">STOP AUTO</button></div></section>
+    <section class="panel library"><div class="library-head"><div><h3>MUSIC LIBRARY <span id="trackCount" class="muted">(0 tracks)</span></h3><small class="muted">Stored locally in this browser</small></div><div class="library-actions"><input id="search" class="search" placeholder="Search tracks…"><label class="btn primary" for="filePicker">＋ ADD MUSIC</label><input id="filePicker" class="file-input" type="file" accept="audio/*" multiple><button class="btn" id="shuffle">SHUFFLE</button></div></div><div class="track-list" id="trackList"><div class="empty">Your library is empty. Add local audio files to get started.</div></div><div class="notice">Audio files stay on this device using IndexedDB. BPM is estimated with conventional signal analysis, not AI. Spotify is not used as an audio input; local files are used for mixing.</div></section>
+  </main><div id="toast" hidden class="toast"></div>`;
+
+  let engine, decks, mixer, autoDJ, library = new MusicLibrary(), toastTimer;
+  const setStatus = text => { $('#systemStatus',root).textContent = text; };
+  const toast = message => { const el=$('#toast',root); el.textContent=message; el.hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.hidden=true,2800); };
+  const updateDeck = id => updateDeckUI(id, decks[id], root);
+  const refreshLibrary = () => { renderLibrary($('#trackList',root),library.tracks,$('#search',root).value); $('#trackCount',root).textContent = '('+library.tracks.length+' tracks)'; };
+  const loadTrack = async (id, track) => { await mixer.resume(); decks[id].load(track); renderWaveform($('#wave'+id,root)); updateDeck(id); setStatus('TRACK LOADED'); };
+  const setAutoState = enabled => { $('#autoState',root).textContent=enabled?'● AUTO DJ ACTIVE':'● AUTO DJ STANDBY'; setStatus(enabled?'AUTOMIX RUNNING':'SYSTEM READY'); };
+  async function addFiles(files) {
+    let errors=0;
+    await library.addFiles(files,()=>errors++);
+    refreshLibrary();
+    toast(errors ? 'Some files could not be analyzed.' : 'Music added to your library.');
+  }
+  async function boot() {
+    try {
+      engine = new AudioEngine();
+      decks = { A:new Deck('A',engine), B:new Deck('B',engine) };
+      mixer = new Mixer(engine,decks.A,decks.B);
+      autoDJ = new AutoDJ({decks,mixer,getTracks:()=>library.tracks,onState:setAutoState,onActiveDeck:updateDeck});
+      await library.load();
+      const setting=await storage.getSetting('shuffle');
+      autoDJ.setShuffle(!!setting?.value);
+      $('#shuffle',root).textContent=setting?.value?'SHUFFLE ON':'SHUFFLE';
+      refreshLibrary();
+      ['A','B'].forEach(id=>{renderWaveform($('#wave'+id,root));updateDeck(id);});
+    } catch(error) {
+      console.error(error); toast('Audio engine could not start in this browser.');
+      setStatus('AUDIO UNAVAILABLE'); return;
+    }
+    root.addEventListener('click',async event=>{
+      const load=event.target.closest('[data-load]');
+      if(load){const track=library.tracks.find(t=>t.id===load.dataset.id);if(track)await loadTrack(load.dataset.load,track);return;}
+      const remove=event.target.closest('[data-delete]');
+      if(remove){await library.remove(remove.dataset.delete);refreshLibrary();return;}
+      const action=event.target.closest('[data-action]');
+      if(action){const deck=decks[action.dataset.deck];await mixer.resume();if(action.dataset.action==='play'){if(deck.playing)deck.pause();else if(deck.track)await deck.play();else toast('Load a track first.');}else if(action.dataset.action==='stop')deck.stop();else if(action.dataset.action==='cue')deck.cue();updateDeck(action.dataset.deck);}
+    });
+    $('#filePicker',root).addEventListener('change',event=>{addFiles([...event.target.files]);event.target.value='';});
+    $('#search',root).addEventListener('input',refreshLibrary);
+    $('#crossfader',root).addEventListener('input',event=>mixer.setCrossfader(+event.target.value/100));
+    $('#master',root).addEventListener('input',event=>{mixer.setMaster(+event.target.value/100);$('#masterVal',root).textContent=event.target.value+'%';});
+    root.querySelectorAll('[data-eq]').forEach(input=>input.addEventListener('input',()=>{const id=input.dataset.deck,band=+input.dataset.eq,value=+input.value;decks[id].setEQ(band,value);$('#'+['lowVal','midVal','highVal'][band]+id,root).textContent=value+' dB';}));
+    $('#startAuto',root).addEventListener('click',async()=>{try{await autoDJ.start();toast('AUTO DJ is running.');}catch(error){toast(error.message);}});
+    $('#stopAuto',root).addEventListener('click',()=>{autoDJ.stop();setAutoState(false);toast('Auto DJ stopped.');});
+    $('#shuffle',root).addEventListener('click',async()=>{const next=!autoDJ.selector.shuffle;autoDJ.setShuffle(next);await storage.putSetting('shuffle',next);$('#shuffle',root).textContent=next?'SHUFFLE ON':'SHUFFLE';toast(next?'Shuffle enabled.':'BPM matching priority enabled.');});
+    const frame=async()=>{if(!root.isConnected)return;for(const id of ['A','B'])updateDeck(id);await autoDJ.tick();requestAnimationFrame(frame);};
+    requestAnimationFrame(frame);
+    window.addEventListener('beforeunload',()=>{autoDJ.destroy();decks.A.dispose();decks.B.dispose();engine.destroy();},{once:true});
+  }
+  boot();
 }
