@@ -1,12 +1,15 @@
+import { StemSeparator } from '../audio/StemSeparator.js';
 import { TrackSelector } from './TrackSelector.js';
 import { TransitionEngine } from './TransitionEngine.js';
 import { TransitionAI } from './TransitionAI.js';
 import { SessionBrain } from './SessionBrain.js';
 
 export class AutoDJ {
-  constructor({ decks, mixer, getTracks, onState, onActiveDeck, onBrainUpdate }) {
+  constructor({ decks, mixer, getTracks, onState, onActiveDeck, onBrainUpdate, onAIStatus }) {
     this.decks = decks; this.mixer = mixer; this.getTracks = getTracks;
-    this.onState = onState; this.onActiveDeck = onActiveDeck; this.onBrainUpdate = onBrainUpdate;
+    this.onState = onState; this.onActiveDeck = onActiveDeck; this.onBrainUpdate = onBrainUpdate; this.onAIStatus = onAIStatus;
+    this.stemSeparator = new StemSeparator({ onStatus: message => this.onAIStatus?.(message) });
+    this.stemQueue = Promise.resolve(); this.stemJobs = new Map();
     this.selector = new TrackSelector(); this.transitionAI = new TransitionAI(); this.brain = new SessionBrain();
     this.active = 'A'; this.enabled = false; this.transitioning = false;
     this.history = []; this.playedInCycle = new Set();
@@ -23,6 +26,22 @@ export class AutoDJ {
     });
   }
   setShuffle(value) { this.selector.shuffle = !!value; }
+  prepareStemMix(deckId, track) {
+    const deck = this.decks[deckId];
+    if (!track?.blob || deck.stemMixer.active || this.stemJobs.get(deckId) === track.id) return;
+    this.stemJobs.set(deckId, track.id);
+    this.stemQueue = this.stemQueue.then(async () => {
+      if (deck.track !== track || deck.stemMixer.active) return;
+      this.onAIStatus?.('AI preparing stems for Deck ' + deckId + '…');
+      const buffers = await this.stemSeparator.separate(track.blob);
+      if (deck.track !== track) return;
+      deck.loadStemBuffers(buffers);
+      this.onAIStatus?.('AI stems ready · Deck ' + deckId);
+    }).catch(error => {
+      this.onAIStatus?.('AI stem separation skipped · ' + error.message);
+      console.warn('Automatic stem preparation failed', error);
+    });
+  }
   async start() {
     const tracks = this.getTracks();
     if (tracks.length < 2) throw new Error('Add at least two tracks to start Auto DJ.');
@@ -35,6 +54,7 @@ export class AutoDJ {
     this.history = current.track?.id ? [current.track.id] : [];
     if (current.track?.id) this.playedInCycle.add(current.track.id);
     this.brain.start(current.track);
+    this.prepareStemMix('A', current.track);
     this.mixer.setDeckSide('A', .001); await current.play(); await this.prepareNext('B');
     this.onState?.(true); this.onBrainUpdate?.(this.brain.getSummary());
   }
@@ -49,7 +69,7 @@ export class AutoDJ {
       excluded = [...this.playedInCycle];
       next = this.selector.select(tracks, current, excluded, { brain: this.brain });
     }
-    if (next && next.id !== current.id) this.decks[deckId].load(next);
+    if (next && next.id !== current.id) { this.decks[deckId].load(next); this.prepareStemMix(deckId, next); }
     this.onBrainUpdate?.(this.brain.getSummary());
   }
   phraseWindow(deck) {
@@ -85,5 +105,5 @@ export class AutoDJ {
     }
   }
   stop() { this.enabled = false; this.transitioning = false; this.transitions.cancel(); this.onState?.(false); }
-  destroy() { this.stop(); }
+  destroy() { this.stop(); this.stemSeparator.cancel(); }
 }
