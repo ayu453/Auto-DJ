@@ -1,6 +1,6 @@
-# AUTO DJ 2.1
+# AUTO DJ 3.0 — Phase 1: Real DJ Engine
 
-A browser-based autonomous DJ console. Load local audio and let the engine manage deck rotation, tempo matching, phrase-aware transitions and EQ.
+A browser-based autonomous DJ console for local audio. Phase 1 focuses on track analysis, tempo matching, phrase-aware cueing and reliable autonomous deck rotation.
 
 ## Run locally
 
@@ -13,39 +13,43 @@ npm run dev
 
 Open the local Vite URL (normally http://localhost:5173). Build with `npm run build` and preview with `npm run preview`.
 
-## Implemented
+## Phase 1 implemented
 
-- Dual local-audio decks, persistent IndexedDB library and independent manual deck controls.
-- Local BPM and beat-phase estimation using conventional signal processing.
-- On-device chroma-based musical key estimation with a confidence score.
-- Track selection that considers tempo, harmonic compatibility and recent-play history.
-- Phrase-window scheduling at the next estimated 8-bar boundary, with an end-of-track fallback.
-- Conservative tempo matching through SoundTouchJS AudioWorklet, designed to preserve pitch while changing tempo.
-- Automatic bass EQ handoff and equal-power crossfading.
-- Native browser pitch-preservation fallback when AudioWorklet is unavailable.
-- 3-band deck EQ, master level and master compressor.
+- Two independent local-audio decks with a persistent IndexedDB music library.
+- On-device onset-envelope analysis and normalized autocorrelation for estimated BPM and beat phase.
+- Confidence-scored beat timing, with old library tracks automatically reanalysed when the analysis version changes.
+- Local musical-key estimation and confidence-aware track selection.
+- Phrase-aware transition scheduling: estimated 8-bar phrase boundaries are considered only near the outgoing track's end, with a safe end-of-track fallback.
+- Incoming cue selection snapped to a four-beat bar, taking the estimated intro and beat phase into account.
+- Conservative tempo matching through SoundTouchJS AudioWorklet when supported, with native browser pitch-preservation fallback.
+- Automatic bass EQ handoff, filter/echo transition recipes and equal-power crossfading.
+- No-repeat track rotation until the available library has been played.
+- Manual deck controls, seek sliders, master level and 3-band EQ.
 
-## Audio engine notes
+## Important audio limitations
 
-The SoundTouchJS processor runs locally in the browser's AudioWorklet thread. Audio files are decoded and analysed on the device; no music is uploaded. The worklet requires a secure context (HTTPS or localhost) and a browser with AudioWorklet support. If it cannot load, the app falls back to native media-element pitch preservation. Tempo matching is deliberately limited to a small range to reduce audible artifacts.
+BPM, beat phase, intro/outro and section labels are estimates, not guaranteed professional-grade beat grids. Mixed genres, live drumming, tempo changes, silence and complex arrangements can reduce accuracy. Beatmatching is intentionally limited to a small tempo range to avoid excessive audio artifacts. Browser media playback is not sample-accurate, so cue alignment can vary slightly by device and browser.
 
-BPM, beat phase and key are estimates, not guaranteed DJ-grade beat grids or harmonic labels. Phrase boundaries are inferred from the estimated beat grid. Real-world performance must be tested with a diverse local music library and listening sessions.
+The transition planner is a local adaptive heuristic, not a cloud neural model. The existing one-bar loop sampler is an early transition layer; full beat rolls, controlled loop performance, stem separation and advanced remix controls belong to Phase 2.
 
-## Known next steps
+## Test checklist
 
-- Stronger downbeat and phrase-structure recognition (intro, verse, chorus, outro).
-- Waveform beat-grid overlays, hot cues and looping.
-- More transition styles and FX (echo, filter sweeps and reverb).
-- Automated listening tests and broader browser/device QA.
-- Better key estimation and confidence-aware harmonic mixing.
+1. Add at least 4 varied tracks with clear steady beats.
+2. Check the estimated BPM and musical key for obvious errors.
+3. Start Auto DJ and confirm both decks play in sequence.
+4. Use the seek slider to move the outgoing track near its final phrase.
+5. Listen for incoming bar alignment, tempo stability, bass handoff and clean end-of-track switching.
+6. Repeat with tracks that differ by more than 6% BPM and with tracks that have weak or uncertain beat detection.
+
+A successful production build does not replace listening tests on real local audio and target PC browsers.
 
 ## Music sources
 
-Local audio files are the mixing source. Spotify is not captured or mixed; any future Spotify integration must use official discovery/metadata APIs and respect their playback and developer terms.
+Local audio files are the mixing source. Spotify audio is not captured or mixed; any future Spotify integration must use official discovery/metadata APIs and respect playback and developer terms.
 
 ## Data and privacy
 
-Audio blobs and analysis metadata stay in this browser's IndexedDB. Clearing site data can erase the library. No cloud database or audio upload is used.
+Audio blobs and analysis metadata stay in this browser's IndexedDB. Clearing site data can erase the library. No audio upload or cloud music storage is used.
 
 ## Stack
 
