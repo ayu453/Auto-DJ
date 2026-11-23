@@ -19,11 +19,11 @@ export class TransitionAI {
     const drop=to?.structure?.sections?.find(s=>s.section==='high-energy'&&s.start>Math.max(8,(to.duration||180)*.18)&&s.start<(to.duration||180)*.72);
     const candidates=this.recipes.map(recipe=>{
       const previous=this.history.get(recipe.style)||{score:.5,count:0};
-      let score=.58-gap*.5+(sameKey?.08:0);
-      if(recipe.style==='drop-blend')score+=drop?.12:0;
-      if(recipe.style==='energy-lift')score+=(inEnergy<outEnergy?.12:0);
-      if(recipe.style==='echo-out'||recipe.style==='filter-echo')score+=(gap>.035?.08:0);
-      if(recipe.style==='phrase-blend')score+=(gap<.025?.1:0);
+      let score=.58-gap*.5+(sameKey ? 0.08 : 0);
+      if(recipe.style==='drop-blend')score+=(drop ? 0.12 : 0);
+      if(recipe.style==='energy-lift')score+=(inEnergy < outEnergy ? 0.12 : 0);
+      if(recipe.style==='echo-out'||recipe.style==='filter-echo')score+=(gap > 0.035 ? 0.08 : 0);
+      if(recipe.style==='phrase-blend')score+=(gap < 0.025 ? 0.1 : 0);
       score+=(previous.score-.5)*.3;
       return {...recipe,score};
     }).sort((x,y)=>y.score-x.score);
