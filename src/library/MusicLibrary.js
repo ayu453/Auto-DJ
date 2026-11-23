@@ -5,6 +5,21 @@ export class MusicLibrary {
   constructor() { this.tracks = []; }
   async load() {
     this.tracks = await storage.getAllTracks();
+    // Upgrade older locally stored tracks with the new energy/section map.
+    for (const track of this.tracks) {
+      if ((track.analysisVersion || 0) < 4 && track.blob) {
+        try {
+          const info = await analyzeFile(track.blob);
+          Object.assign(track, {
+            duration: info.duration, bpm: info.bpm, beatOffset: info.beatOffset,
+            beatConfidence: info.beatConfidence, beatInterval: info.beatInterval,
+            phraseLength: info.phraseLength, key: info.key, keyConfidence: info.keyConfidence,
+            structure: info.structure, analysisVersion: info.analysisVersion
+          });
+          await storage.putTrack(track);
+        } catch (error) { console.warn('Track analysis upgrade skipped:', track.name, error); }
+      }
+    }
     this.tracks.sort((a,b) => a.addedAt - b.addedAt);
     return this.tracks;
   }
