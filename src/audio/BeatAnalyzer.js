@@ -49,6 +49,42 @@ export async function analyzeFile(file) {
       beatConfidence = mean > 0 ? Math.max(0, Math.min(1, (phaseScore - mean) / (mean * 3))) : 0;
     }
 
+    // Coarse musical structure map: one-second RMS energy windows, kept locally.
+    const energy = [];
+    const windowSize = sampleRate;
+    for (let start = 0; start < channel.length; start += windowSize) {
+      const end = Math.min(channel.length, start + windowSize);
+      let sum = 0;
+      for (let i = start; i < end; i += 4) sum += channel[i] * channel[i];
+      energy.push(Math.sqrt(sum / Math.max(1, Math.ceil((end-start)/4))));
+    }
+    const sortedEnergy = [...energy].sort((x,y)=>x-y);
+    const medianEnergy = sortedEnergy[Math.floor(sortedEnergy.length*.5)] || 0;
+    const maxEnergy = sortedEnergy[Math.floor(sortedEnergy.length*.9)] || 0;
+    const levelAt = (fraction) => energy[Math.min(energy.length-1,Math.floor(fraction*energy.length))] || 0;
+    const introThreshold = Math.max(medianEnergy*.72, maxEnergy*.28);
+    let introEnd = 0;
+    for (let i=0;i<Math.min(energy.length,Math.floor(energy.length*.3));i++) {
+      if (energy[i] >= introThreshold) { introEnd=i; break; }
+    }
+    let outroStart = Math.max(0,energy.length-1);
+    for (let i=energy.length-1;i>=Math.floor(energy.length*.7);i--) {
+      if (energy[i] >= introThreshold) { outroStart=i; break; }
+    }
+    const blocks = [];
+    const blockSeconds = beatSeconds ? beatSeconds*8 : 16;
+    const blockSize = Math.max(1,Math.round(blockSeconds));
+    for(let i=0;i<energy.length;i+=blockSize){
+      const slice=energy.slice(i,Math.min(energy.length,i+blockSize));
+      const avg=slice.reduce((x,y)=>x+y,0)/Math.max(1,slice.length);
+      const relative=maxEnergy?avg/maxEnergy:0;
+      blocks.push({start:i,end:Math.min(energy.length,i+blockSize),energy:Math.round(relative*100)/100,
+        section:relative>.78?'high-energy':relative<.34?'break':'groove'});
+    }
+    const structure = {
+      introEnd, outroStart, energy: maxEnergy?Math.round((energy.reduce((x,y)=>x+y,0)/Math.max(1,energy.length))/maxEnergy*100)/100:0,
+      sections: blocks.slice(0,80)
+    };
     const keyInfo = estimateKey(buffer);
     return {
       duration: buffer.duration,
