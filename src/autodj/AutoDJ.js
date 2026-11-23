@@ -29,7 +29,7 @@ export class AutoDJ {
   async prepareNext(deckId) {
     if (!this.enabled) return;
     const current = this.decks[this.active].track;
-    const next = this.selector.select(this.getTracks(), current, [this.decks[deckId].track?.id]);
+    const next = this.selector.select(this.getTracks(), current);
     if (next) this.decks[deckId].load(next);
   }
   async tick() {
