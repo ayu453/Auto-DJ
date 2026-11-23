@@ -20,7 +20,7 @@ export function mountApp(root){
  const updateDeck=id=>updateDeckUI(id,decks[id],root);
  const refreshLibrary=()=>{renderLibrary($('#trackList',root),library.tracks,$('#search',root).value);$('#trackCount',root).textContent='('+library.tracks.length+' tracks)';};
  const loadTrack=async(id,track)=>{await mixer.resume();decks[id].load(track);renderWaveform($('#wave'+id,root));updateDeck(id);setStatus('TRACK LOADED');};
- const setAutoState=enabled=>{$('#autoState',root).textContent=enabled?'● AUTO DJ ACTIVE':'● AUTO DJ STANDBY';setStatus(enabled?'AUTOMIX RUNNING':'SYSTEM READY');if(!enabled)$('#remixStatus',root).textContent='REMIX ENGINE STANDBY';};
+ const setAutoState=enabled=>{$('#autoState',root).textContent=enabled?'● AUTO DJ ACTIVE':'● AUTO DJ STANDBY';setStatus(enabled?'AUTOMIX RUNNING':'SYSTEM READY');};
  async function addFiles(files){let errors=0,done=0;await library.addFiles(files,r=>{if(r.error)errors++;else done++;setStatus('ANALYSING MUSIC '+(done+errors)+'/'+files.length);});refreshLibrary();setStatus('SYSTEM READY');toast(errors?done+' added · '+errors+' failed.':done+' tracks analysed and added.');}
  async function boot(){
   try{engine=new AudioEngine();await engine.initialize();decks={A:new Deck('A',engine),B:new Deck('B',engine)};mixer=new Mixer(engine,decks.A,decks.B);
