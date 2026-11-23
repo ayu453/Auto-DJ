@@ -26,7 +26,9 @@ export class AutoDJ {
   async start() {
     const tracks = this.getTracks();
     if (tracks.length < 2) throw new Error('Add at least two tracks to start Auto DJ.');
-    await this.brain.load(); await this.mixer.resume();
+    await this.brain.load();
+    this.transitionAI.history = new Map(Object.entries(this.brain.recipeScores));
+    await this.mixer.resume();
     this.enabled = true; this.transitioning = false; this.active = 'A'; this.playedInCycle.clear();
     const current = this.decks.A;
     if (!current.track || !tracks.some(track => track.id === current.track.id)) current.load(tracks[Math.floor(Math.random() * tracks.length)]);
