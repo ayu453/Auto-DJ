@@ -35,7 +35,7 @@ export function mountApp(root){
   root.querySelectorAll('[data-eq]').forEach(x=>x.addEventListener('input',()=>{const id=x.dataset.deck,b=+x.dataset.eq,v=+x.value;decks[id].setEQ(b,v);$('#'+['lowVal','midVal','highVal'][b]+id,root).textContent=v+' dB';}));
   $('#startAuto',root).addEventListener('click',async()=>{try{await autoDJ.start();toast('AUTO DJ started.');}catch(e){toast(e.message);}});$('#stopAuto',root).addEventListener('click',()=>{autoDJ.stop();setAutoState(false);toast('AUTO DJ stopped.');});
   $('#shuffle',root).addEventListener('click',async()=>{const v=!autoDJ.selector.shuffle;autoDJ.setShuffle(v);await storage.putSetting('shuffle',v);$('#shuffle',root).textContent=v?'SHUFFLE ON':'SHUFFLE';});
-  const frame=async()=>{if(!root.isConnected)return;for(const id of ['A','B']){updateDeck(id);updateWaveform($('#wave'+id,root),decks[id]);}await autoDJ.tick();requestAnimationFrame(frame);};requestAnimationFrame(frame);
+  const frame=async()=>{if(!root.isConnected)return;for(const id of ['A','B']){updateDeck(id);updateWaveform($('#wave'+id,root),decks[id]);decks[id].syncStemPlayback();}await autoDJ.tick();requestAnimationFrame(frame);};requestAnimationFrame(frame);
   window.addEventListener('beforeunload',()=>{autoDJ.destroy();decks.A.dispose();decks.B.dispose();engine.destroy();},{once:true});
  }
  boot();
