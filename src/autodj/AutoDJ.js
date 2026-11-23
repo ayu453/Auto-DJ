@@ -9,7 +9,7 @@ export class AutoDJ {
     this.selector = new TrackSelector(); this.transitionAI = new TransitionAI(); this.active = 'A'; this.enabled = false;
     this.transitioning = false; this.history = [];
     this.transitions = new TransitionEngine(mixer, decks, (from, to, result) => {
-      if (result?.style) this.transitionAI.learn(result.style, result.matched ? 0.72 : 0.48);
+      if (result?.style) { const energyScore=(Number(result.plan?.energyMatch)||50)/100; this.transitionAI.learn(result.style, (result.matched?0.62:0.42)+energyScore*0.2); }
       this.active = to; this.transitioning = false;
       const id = this.decks[to].track?.id;
       if (id) this.history.push(id);
@@ -63,8 +63,10 @@ export class AutoDJ {
     const remaining = current.remaining;
     const phraseDistance = this.phraseWindow(current);
     const phraseDue = phraseDistance !== null && phraseDistance <= .22 && remaining > 12;
+    const outroStart = Number(current.track.structure?.outroStart) || 0;
+    const outroReady = outroStart > 0 && current.currentTime >= outroStart && remaining > 12 && phraseDistance !== null && phraseDistance <= 1.5;
     const fallbackDue = remaining <= 10;
-    if (phraseDue || fallbackDue) {
+    if (phraseDue || outroReady || fallbackDue) {
       this.transitioning = true;
       const plan = this.transitionAI.choose(current.track, this.decks[nextId].track);
       this.onTransition?.(plan);
