@@ -6,9 +6,13 @@ export class AutoDJ {
     this.decks = decks; this.mixer = mixer; this.getTracks = getTracks;
     this.onState = onState; this.onActiveDeck = onActiveDeck;
     this.selector = new TrackSelector(); this.active = 'A'; this.enabled = false;
-    this.transitioning = false;
+    this.transitioning = false; this.history = [];
     this.transitions = new TransitionEngine(mixer, decks, (from, to) => {
-      this.active = to; this.transitioning = false; this.onActiveDeck?.(to);
+      this.active = to; this.transitioning = false;
+      const id = this.decks[to].track?.id;
+      if (id) this.history.push(id);
+      this.history = this.history.slice(-12);
+      this.onActiveDeck?.(to);
       this.prepareNext(from);
     });
   }
@@ -18,8 +22,9 @@ export class AutoDJ {
     if (tracks.length < 2) throw new Error('Add at least two tracks to start Auto DJ.');
     await this.mixer.resume();
     this.enabled = true; this.transitioning = false;
-    let current = this.decks[this.active];
+    const current = this.decks[this.active];
     if (!current.track) current.load(tracks[Math.floor(Math.random() * tracks.length)]);
+    this.history = current.track?.id ? [current.track.id] : [];
     this.mixer.setDeckSide(this.active, .001);
     await current.play();
     await this.prepareNext(this.active === 'A' ? 'B' : 'A');
@@ -28,17 +33,21 @@ export class AutoDJ {
   async prepareNext(deckId) {
     if (!this.enabled) return;
     const current = this.decks[this.active].track;
-    const next = this.selector.select(this.getTracks(), current);
+    const tracks = this.getTracks();
+    // Avoid immediate repeats while still allowing a two-track library to rotate.
+    const recentCount = Math.min(3, Math.max(1, tracks.length - 1));
+    const excluded = this.history.slice(-recentCount);
+    const next = this.selector.select(tracks, current, excluded);
     if (next) this.decks[deckId].load(next);
   }
-  nextPhraseTime(deck) {
+  phraseWindow(deck) {
     const bpm = deck.track?.bpm || 0;
-    const beatOffset = Number(deck.track?.beatOffset) || 0;
+    const offset = Number(deck.track?.beatOffset) || 0;
     if (!bpm || (deck.track?.beatConfidence || 0) < .08) return null;
-    const beat = 60 / bpm;
-    const phrase = beat * 32; // 8 bars in 4/4
-    const elapsed = Math.max(0, deck.currentTime - beatOffset);
-    return beatOffset + (Math.floor(elapsed / phrase) + 1) * phrase;
+    const phraseSeconds = (60 / bpm) * 32; // 8 bars in 4/4
+    const elapsed = Math.max(0, deck.currentTime - offset);
+    const phase = elapsed % phraseSeconds;
+    return Math.min(phase, phraseSeconds - phase);
   }
   async tick() {
     if (!this.enabled || this.transitioning) return;
@@ -49,10 +58,9 @@ export class AutoDJ {
     if (!this.decks[nextId].track) { this.stop(); return; }
 
     const remaining = current.remaining;
-    const phraseTime = this.nextPhraseTime(current);
-    const phraseDue = phraseTime !== null && phraseTime <= current.duration - 2 && current.currentTime >= phraseTime - .12;
+    const phraseDistance = this.phraseWindow(current);
+    const phraseDue = phraseDistance !== null && phraseDistance <= .22 && remaining > 12;
     const fallbackDue = remaining <= 10;
-    // Prefer the next 8-bar phrase boundary; fall back near the end for uncertain analyses.
     if (phraseDue || fallbackDue) {
       this.transitioning = true;
       const ok = await this.transitions.transition(this.active, nextId, Math.min(12, Math.max(5, remaining)));
