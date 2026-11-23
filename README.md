@@ -92,7 +92,7 @@ Vite, vanilla JavaScript, Web Audio API, AudioWorklet, SoundTouchJS and IndexedD
 - Uses the single-model four-stem HTDemucs ONNX export hosted by StemSplit on Hugging Face. The model is approximately 166 MB and is downloaded on first use; the browser may cache it for later sessions.
 - Audio is decoded and processed in 7.8-second chunks with 25% overlap and overlap-add reconstruction. Audio is not uploaded to an application server.
 - WebGPU is preferred when available, with WASM fallback. Cross-origin isolation headers are enabled to allow multi-threaded WASM where the browser supports it.
-- Browser memory safety limit: six minutes per input track. Long tracks and older PCs may still require substantial RAM; use a desktop browser and close memory-heavy tabs before separating.
+- Browser memory safety limit adapts to the browser's device-memory estimate: about 2 minutes on low-memory devices, 4 minutes on mid-range devices, and up to 6 minutes on higher-memory PCs. Long tracks still require substantial RAM; use a desktop browser and close memory-heavy tabs before separating.
 - Separation is offline after the model has loaded, but first model download requires an internet connection.
 
 ### Live stem performance
