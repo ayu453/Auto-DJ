@@ -22,7 +22,6 @@ export class AutoDJ {
         const energyScore = (Number(result.plan?.energyMatch) || 50) / 100;
         this.transitionAI.learn(result.style, (result.matched ? 0.62 : 0.42) + energyScore * 0.2);
       }
-
       this.active = to;
       this.transitioning = false;
       const id = this.decks[to].track?.id;
@@ -32,33 +31,26 @@ export class AutoDJ {
         this.playedInCycle.add(id);
       }
       this.onActiveDeck?.(to);
-      // The old deck is now silent and can safely be prepared for a later cycle.
       this.prepareNext(from);
     });
   }
 
-  setShuffle(value) {
-    this.selector.shuffle = !!value;
-  }
+  setShuffle(value) { this.selector.shuffle = !!value; }
 
   async start() {
     const tracks = this.getTracks();
     if (tracks.length < 2) throw new Error('Add at least two tracks to start Auto DJ.');
-
     await this.mixer.resume();
     this.enabled = true;
     this.transitioning = false;
     this.active = 'A';
     this.playedInCycle.clear();
-
     const current = this.decks[this.active];
     if (!current.track || !tracks.some(track => track.id === current.track.id)) {
       current.load(tracks[Math.floor(Math.random() * tracks.length)]);
     }
-
     this.history = current.track?.id ? [current.track.id] : [];
     if (current.track?.id) this.playedInCycle.add(current.track.id);
-
     this.mixer.setDeckSide(this.active, 0.001);
     await current.play();
     await this.prepareNext('B');
@@ -70,50 +62,37 @@ export class AutoDJ {
     const current = this.decks[this.active].track;
     const tracks = this.getTracks();
     if (!current || tracks.length < 2) return;
-
-    // Do not replay a track until every other library track has had a turn.
     let excluded = [...this.playedInCycle];
     let next = this.selector.select(tracks, current, excluded);
-
-    // Start a fresh cycle only after exhausting the available library.
     if (!next) {
       this.playedInCycle = new Set(current.id ? [current.id] : []);
       excluded = [...this.playedInCycle];
       next = this.selector.select(tracks, current, excluded);
     }
-
-    if (next && next.id !== current.id) {
-      this.decks[deckId].load(next);
-    }
+    if (next && next.id !== current.id) this.decks[deckId].load(next);
   }
 
   phraseWindow(deck) {
     const bpm = Number(deck.track?.bpm) || 0;
+    const confidence = Number(deck.track?.beatConfidence) || 0;
     const offset = Number(deck.track?.beatOffset) || 0;
-    if (!bpm || (deck.track?.beatConfidence || 0) < 0.08) return null;
-
-    // 32 beats = an estimated 8-bar phrase in 4/4. Only target the NEXT
-    // boundary; never trigger again just after crossing the same boundary.
+    if (!bpm || confidence < 0.12) return null;
+    // 32 beats = an estimated 8-bar phrase in 4/4.
     const phraseSeconds = (60 / bpm) * 32;
     const elapsed = deck.currentTime - offset;
     if (elapsed < 0) return null;
     const phase = elapsed % phraseSeconds;
-    const untilNext = phraseSeconds - phase;
-    return untilNext < 0.08 ? phraseSeconds : untilNext;
+    // Treat the boundary itself as due; don't wait another full phrase.
+    return phase < 0.08 ? 0 : phraseSeconds - phase;
   }
 
   async tick() {
     if (!this.enabled || this.transitioning) return;
-
     const current = this.decks[this.active];
     if (!current.track || !current.playing) return;
-
     const nextId = this.active === 'A' ? 'B' : 'A';
     if (!this.decks[nextId].track) await this.prepareNext(nextId);
-    if (!this.decks[nextId].track) {
-      this.stop();
-      return;
-    }
+    if (!this.decks[nextId].track) { this.stop(); return; }
 
     const remaining = current.remaining;
     const phraseDistance = this.phraseWindow(current);
@@ -124,27 +103,19 @@ export class AutoDJ {
       ? Math.max(5, Math.min(18, (60 / bpm) * 4 * plannedBars))
       : 10;
 
-    // Phrase boundaries occur every ~8 bars. They are NOT permission to mix
-    // every 8 bars: only use one when the outgoing track is near its end.
+    // Only transition at a phrase boundary when the outgoing track is near its end.
     const nearEnd = remaining <= transitionSeconds + 2.5;
     const phraseDue = nearEnd && phraseDistance !== null && phraseDistance <= 0.22;
     const outroStart = Number(current.track.structure?.outroStart) || 0;
     const outroReady = nearEnd && outroStart > 0 &&
       current.currentTime >= outroStart &&
       phraseDistance !== null && phraseDistance <= 1.5;
-    // If the next phrase boundary is too late, start at the safe end window
-    // rather than letting the outgoing track finish before the blend.
     const fallbackDue = remaining <= transitionSeconds + 0.75;
 
     if (phraseDue || outroReady || fallbackDue) {
       this.transitioning = true;
       this.onTransition?.(plan);
-      const ok = await this.transitions.transition(
-        this.active,
-        nextId,
-        transitionSeconds,
-        plan
-      );
+      const ok = await this.transitions.transition(this.active, nextId, transitionSeconds, plan);
       if (!ok) this.transitioning = false;
     }
   }
@@ -155,8 +126,5 @@ export class AutoDJ {
     this.transitions.cancel();
     this.onState?.(false);
   }
-
-  destroy() {
-    this.stop();
-  }
+  destroy() { this.stop(); }
 }
