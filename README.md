@@ -62,3 +62,11 @@ Audio blobs and analysis metadata stay in this browser's IndexedDB. Clearing sit
 ## Stack
 
 Vite, vanilla JavaScript, Web Audio API, AudioWorklet, SoundTouchJS and IndexedDB.
+
+## Phase 3 — AI DJ Brain
+
+- Local session brain ranks next tracks by tempo, harmonic key compatibility, estimated energy fit, beat-analysis confidence and artist/recent-track variety.
+- A gentle session energy arc guides the progression instead of choosing by BPM alone.
+- Transition outcomes update per-recipe scores; the learned profile persists in IndexedDB on this browser.
+- Console displays energy target, transition count, learned recipe count and next-track fit score.
+- No audio is sent to a cloud AI service. This is an explainable local adaptive heuristic, not a generative neural model.
