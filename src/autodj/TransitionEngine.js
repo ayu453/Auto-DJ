@@ -56,7 +56,7 @@ export class TransitionEngine {
       const loopStart = offset + Math.max(0, alignedBeat - loopBeats) * beatSeconds;
 
       // A short, quantized remix layer plays over the original track, then exits cleanly.
-      loopStarted = plan.loopRepeat !== false &&
+      loopStarted = plan.loopRepeat !== false && !from.stemMixer?.active &&
         from.startLoop(loopStart, loopLength, 1, plan.remix === 'beat-roll' ? .82 : .7);
       const remixDuration = Math.min(duration, beatSeconds * 4 * loopBars * 1000);
       let remixEnded = !loopStarted;
