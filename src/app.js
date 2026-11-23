@@ -34,7 +34,7 @@ $('#search').addEventListener('input',renderLibrary);
 $('#crossfader').addEventListener('input',e=>mixer.setCrossfader(+e.target.value/100));
 $('#master').addEventListener('input',e=>{mixer.setMaster(+e.target.value/100);$('#masterVal').textContent=e.target.value+'%';});
 root.querySelectorAll('[data-eq]').forEach(el=>el.addEventListener('input',()=>{const id=el.dataset.deck,band=+el.dataset.eq,v=+el.value;deck(id).setEQ(band,v);$('#'+['lowVal','midVal','highVal'][band]+id).textContent=v+' dB';}));
-$('#startAuto').addEventListener('click',startAuto);$('#stopAuto').addEventListener('click',stopAuto);$('#shuffle').addEventListener('click',()=>{shuffle=!shuffle;$('#shuffle').textContent=shuffle?'SHUFFLE ON':'SHUFFLE';toast(shuffle?'Shuffle enabled':'BPM matching priority enabled');});
+$('#startAuto').addEventListener('click',startAuto);$('#stopAuto').addEventListener('click',stopAuto);$('#shuffle').addEventListener('click',()=>{shuffle=!shuffle;storage.putSetting('shuffle',shuffle).catch(console.error);$('#shuffle').textContent=shuffle?'SHUFFLE ON':'SHUFFLE';toast(shuffle?'Shuffle enabled':'BPM matching priority enabled');});
 (async()=>{try{tracks=await storage.getAllTracks();tracks.sort((a,b)=>a.addedAt-b.addedAt);renderLibrary();const s=await storage.getSetting('shuffle');shuffle=!!s?.value;}catch(e){console.error(e);toast('Browser storage unavailable. Use a modern browser with site storage enabled.');}})();
 requestAnimationFrame(tick);
 window.addEventListener('beforeunload',()=>mixer.destroy());
