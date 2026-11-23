@@ -9,7 +9,7 @@ export class StemSeparator {
    if(!Ctx)throw new Error('Web Audio API is unavailable.');
    const context=new Ctx({sampleRate:44100});let decoded,audio;
    try{decoded=await context.decodeAudioData(await blob.arrayBuffer());}finally{await context.close();}
-   if(decoded.duration>360)throw new Error('For browser memory safety, AI separation is limited to 6 minutes per track.');
+   const memoryGB=Number(navigator.deviceMemory)||4,maxSeconds=memoryGB>=8?360:memoryGB>=4?240:120;if(decoded.duration>maxSeconds)throw new Error('This device is limited to '+Math.round(maxSeconds/60)+' minutes per AI separation for memory safety.');
    audio=decoded;
    if(decoded.sampleRate!==44100){if(!window.OfflineAudioContext)throw new Error('This browser cannot resample audio to the AI model rate.');const offline=new OfflineAudioContext(2,Math.ceil(decoded.duration*44100),44100),source=offline.createBufferSource();source.buffer=decoded;source.connect(offline.destination);source.start();audio=await offline.startRendering();}
    const left=audio.getChannelData(0).slice(),right=(audio.numberOfChannels>1?audio.getChannelData(1):audio.getChannelData(0)).slice(),length=left.length;
