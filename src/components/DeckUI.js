@@ -14,6 +14,12 @@ export function updateDeckUI(id, deck, root) {
   $('#duration' + id).textContent = fmt(deck.duration);
   $('#elapsed' + id).textContent = fmt(deck.currentTime);
   $('#progress' + id).style.width = deck.duration ? (deck.currentTime / deck.duration * 100) + '%' : '0%';
+  const seek = $('#seek' + id);
+  if (seek) {
+    seek.max = String(Math.max(0, deck.duration || 0));
+    seek.value = String(Math.min(deck.currentTime || 0, deck.duration || 0));
+    seek.disabled = !deck.track || !Number.isFinite(deck.duration) || deck.duration <= 0;
+  }
   const play = root.querySelector('#deck' + id + ' [data-action="play"]');
   if (play) play.textContent = deck.playing ? 'Ⅱ' : '▶';
 }
