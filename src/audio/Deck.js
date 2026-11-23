@@ -16,6 +16,7 @@ export class Deck {
  setRate(v){this.rate=Math.max(.94,Math.min(1.06,Number(v)||1));this.audio.playbackRate=this.rate;this.stemMixer?.setRate(this.rate);if(this.timeStretch){this.timeStretch.playbackRate.setValueAtTime(this.rate,this.context.currentTime);this.timeStretch.pitch.setValueAtTime(1,this.context.currentTime);this.timeStretch.pitchSemitones.setValueAtTime(0,this.context.currentTime);}}
  getWaveformData(){this.analyser.getByteFrequencyData(this.waveData);return this.waveData;}
  loadStemPack(files){return this.stemMixer.load(files);}
+ loadStemBuffers(buffers){return this.stemMixer.loadBuffers(buffers);}
  setStemLevel(role,value){this.stemMixer.setLevel(role,value);}
  clearStemPack(){this.stemMixer.clear();}
  get currentTime(){return this.audio.currentTime||0;}get duration(){return this.audio.duration||this.track?.duration||0;}get remaining(){return Math.max(0,this.duration-this.currentTime);}
