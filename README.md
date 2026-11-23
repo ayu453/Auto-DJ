@@ -87,7 +87,7 @@ Vite, vanilla JavaScript, Web Audio API, AudioWorklet, SoundTouchJS and IndexedD
 
 - Import pre-separated local stems into either deck using filenames containing `vocals`, `drums`, `bass`, or `other`.
 - Independent stem faders allow vocal-only, instrumental-only, and cross-deck mashup workflows when matching stem files are supplied.
-- Stem playback follows deck seek/play/pause and the deck's tempo/time-stretch path remains available for the main deck.
+- Stem playback follows deck seek/play/pause and the deck's small tempo adjustment range. Stem files currently use playback-rate changes (which can shift pitch slightly); SoundTouch pitch preservation is not yet applied to each independent stem.
 - This is **stem playback/mixing, not automatic stem separation**. No model is embedded or downloaded to split a stereo song into vocals/drums/bass. Automatic local Demucs/HTDemucs-class separation, vocal activity detection, and confidence-aware vocal clash avoidance remain the next Phase 5 engineering tasks.
 - For a mashup, load the instrumental stem pack on one deck and vocals on the other; reduce the unwanted stem faders and use the crossfader/EQ to blend. Both decks need pre-separated source files.
 
