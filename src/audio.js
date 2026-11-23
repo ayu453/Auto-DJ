@@ -1,8 +1,8 @@
 export class AudioDeck {
   constructor(id,ctx,destination){
     this.id=id;this.ctx=ctx;this.destination=destination;this.audio=new Audio();this.audio.preload='auto';this.audio.crossOrigin='anonymous';
-    this.source=null;this.gain=ctx.createGain();this.eq=[60,1000,10000].map(f=>{const n=ctx.createBiquadFilter();n.type=f===60?'lowshelf':f===10000?'highshelf':'peaking';n.frequency.value=f;n.Q.value=.8;return n;});
-    this.eq[0].connect(this.eq[1]);this.eq[1].connect(this.eq[2]);this.eq[2].connect(this.gain);this.gain.connect(destination);
+    this.source=ctx.createMediaElementSource(this.audio);this.gain=ctx.createGain();this.eq=[60,1000,10000].map(f=>{const n=ctx.createBiquadFilter();n.type=f===60?'lowshelf':f===10000?'highshelf':'peaking';n.frequency.value=f;n.Q.value=.8;return n;});
+    this.source.connect(this.eq[0]);this.eq[0].connect(this.eq[1]);this.eq[1].connect(this.eq[2]);this.eq[2].connect(this.gain);this.gain.connect(destination);
     this.audio.addEventListener('ended',()=>this.onEnded?.());this.track=null;this.url=null;this.baseBpm=0;this.playing=false;
   }
   load(track){this.stop();if(this.url)URL.revokeObjectURL(this.url);this.track=track;this.url=URL.createObjectURL(track.blob);this.audio.src=this.url;this.baseBpm=track.bpm||0;this.audio.load();}
