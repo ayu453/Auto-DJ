@@ -11,26 +11,29 @@ export class TransitionEngine {
     const token = ++this.token;
     await this.mixer.resume();
 
-    const fromBpm = from.track.bpm || 0;
-    const toBpm = to.track.bpm || 0;
-    let targetBpm = fromBpm;
+    const fromBpm = Number(from.track.bpm) || 0;
+    const toBpm = Number(to.track.bpm) || 0;
+    let matched = false;
     if (fromBpm && toBpm) {
-      // Prefer direct tempo match; half/double-time is allowed when closer.
-      const options = [toBpm, toBpm * 2, toBpm / 2].filter(v => v >= 65 && v <= 180);
-      targetBpm = options.sort((a, b) => Math.abs(a - fromBpm) - Math.abs(b - fromBpm))[0] || toBpm;
-      const rate = Math.max(.94, Math.min(1.06, targetBpm / toBpm));
-      to.setRate(rate);
+      const rate = fromBpm / toBpm;
+      if (rate >= .94 && rate <= 1.06) {
+        to.setRate(rate);
+        matched = true;
+      } else {
+        to.setRate(1);
+      }
     } else {
       to.setRate(1);
     }
 
-    // Start the incoming deck on its measured beat phase.
-    const beatOffset = Number(to.track.beatOffset) || 0;
+    // Both decks use their locally analysed beat phase. The incoming track starts
+    // at its first detected beat; the outgoing deck is already at a phrase boundary.
+    const beatOffset = Math.max(0, Number(to.track.beatOffset) || 0);
     to.setCurrentTime(beatOffset);
     this.mixer.setDeckSide(fromId, .001);
     await to.play();
 
-    const beatSeconds = targetBpm ? 60 / targetBpm : 0;
+    const beatSeconds = fromBpm ? 60 / fromBpm : 0;
     const duration = Math.max(5, Math.min(14, beatSeconds ? beatSeconds * 16 : seconds)) * 1000;
     const start = performance.now();
     const startValue = fromId === 'A' ? 0 : 1;
@@ -38,32 +41,31 @@ export class TransitionEngine {
     const step = now => {
       if (!this.running || token !== this.token) return;
       const p = Math.min(1, (now - start) / duration);
-      // Smooth equal-power crossfade, with a bass handoff around the midpoint.
       const eased = p * p * (3 - 2 * p);
       this.mixer.setCrossfader(startValue + (endValue - startValue) * eased, .02);
+
+      // Bass swap: clear space for the incoming kick, then restore the outgoing deck.
       if (p < .5) {
-        from.setEQ(0, -5 * (p * 2));
-        to.setEQ(0, -5 * (1 - p * 2));
+        from.setEQ(0, -6 * (p * 2));
+        to.setEQ(0, -6 * (1 - p * 2));
       } else {
-        from.setEQ(0, -5 - 7 * ((p - .5) * 2));
-        to.setEQ(0, -5 + 5 * ((p - .5) * 2));
+        from.setEQ(0, -6 - 12 * ((p - .5) * 2));
+        to.setEQ(0, -6 + 6 * ((p - .5) * 2));
       }
       if (p < 1) this.timer = requestAnimationFrame(step);
       else {
         from.stop();
-        from.setEQ(0, 0);
-        to.setEQ(0, 0);
+        from.setEQ(0, 0); to.setEQ(0, 0);
         from.setRate(1);
         this.running = false;
-        this.onComplete?.(fromId, toId);
+        this.onComplete?.(fromId, toId, { matched });
       }
     };
     this.timer = requestAnimationFrame(step);
     return true;
   }
   cancel() {
-    this.running = false;
-    this.token++;
+    this.running = false; this.token++;
     if (this.timer) cancelAnimationFrame(this.timer);
     this.timer = null;
   }
