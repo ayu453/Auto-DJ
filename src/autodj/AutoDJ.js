@@ -34,7 +34,6 @@ export class AutoDJ {
     if (!this.enabled) return;
     const current = this.decks[this.active].track;
     const tracks = this.getTracks();
-    // Avoid immediate repeats while still allowing a two-track library to rotate.
     const recentCount = Math.min(3, Math.max(1, tracks.length - 1));
     const excluded = this.history.slice(-recentCount);
     const next = this.selector.select(tracks, current, excluded);
@@ -44,8 +43,11 @@ export class AutoDJ {
     const bpm = deck.track?.bpm || 0;
     const offset = Number(deck.track?.beatOffset) || 0;
     if (!bpm || (deck.track?.beatConfidence || 0) < .08) return null;
-    const phraseSeconds = (60 / bpm) * 32; // 8 bars in 4/4
-    const elapsed = Math.max(0, deck.currentTime - offset);
+    const phraseSeconds = (60 / bpm) * 32;
+    const elapsed = deck.currentTime - offset;
+    if (elapsed < 0) return null;
+    // Ignore the first downbeat; start the blend at the next 8-bar boundary.
+    if (elapsed < phraseSeconds) return phraseSeconds - elapsed;
     const phase = elapsed % phraseSeconds;
     return Math.min(phase, phraseSeconds - phase);
   }
@@ -56,7 +58,6 @@ export class AutoDJ {
     const nextId = this.active === 'A' ? 'B' : 'A';
     if (!this.decks[nextId].track) await this.prepareNext(nextId);
     if (!this.decks[nextId].track) { this.stop(); return; }
-
     const remaining = current.remaining;
     const phraseDistance = this.phraseWindow(current);
     const phraseDue = phraseDistance !== null && phraseDistance <= .22 && remaining > 12;
