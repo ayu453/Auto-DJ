@@ -117,20 +117,32 @@ export class AutoDJ {
 
     const remaining = current.remaining;
     const phraseDistance = this.phraseWindow(current);
-    const phraseDue = phraseDistance !== null && phraseDistance <= 0.22 && remaining > 12;
+    const plan = this.transitionAI.choose(current.track, this.decks[nextId].track);
+    const bpm = Number(current.track.bpm) || 0;
+    const plannedBars = Math.max(4, Math.min(16, Number(plan.bars) || 8));
+    const transitionSeconds = bpm
+      ? Math.max(5, Math.min(18, (60 / bpm) * 4 * plannedBars))
+      : 10;
+
+    // Phrase boundaries occur every ~8 bars. They are NOT permission to mix
+    // every 8 bars: only use one when the outgoing track is near its end.
+    const nearEnd = remaining <= transitionSeconds + 2.5;
+    const phraseDue = nearEnd && phraseDistance !== null && phraseDistance <= 0.22;
     const outroStart = Number(current.track.structure?.outroStart) || 0;
-    const outroReady = outroStart > 0 && current.currentTime >= outroStart &&
-      remaining > 12 && phraseDistance !== null && phraseDistance <= 1.5;
-    const fallbackDue = remaining <= 10;
+    const outroReady = nearEnd && outroStart > 0 &&
+      current.currentTime >= outroStart &&
+      phraseDistance !== null && phraseDistance <= 1.5;
+    // If the next phrase boundary is too late, start at the safe end window
+    // rather than letting the outgoing track finish before the blend.
+    const fallbackDue = remaining <= transitionSeconds + 0.75;
 
     if (phraseDue || outroReady || fallbackDue) {
       this.transitioning = true;
-      const plan = this.transitionAI.choose(current.track, this.decks[nextId].track);
       this.onTransition?.(plan);
       const ok = await this.transitions.transition(
         this.active,
         nextId,
-        Math.min(12, Math.max(5, remaining)),
+        transitionSeconds,
         plan
       );
       if (!ok) this.transitioning = false;
