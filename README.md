@@ -70,3 +70,31 @@ Vite, vanilla JavaScript, Web Audio API, AudioWorklet, SoundTouchJS and IndexedD
 - Transition outcomes update per-recipe scores; the learned profile persists in IndexedDB on this browser.
 - Console displays energy target, transition count, learned recipe count and next-track fit score.
 - No audio is sent to a cloud AI service. This is an explainable local adaptive heuristic, not a generative neural model.
+
+
+## Phase 4 — Professional DJ Console
+
+- Live deck waveform meters driven by each deck's Web Audio analyser (not decorative sample bars).
+- Four hot-cue memory points per deck with set and jump controls.
+- Beat-grid-snapped 1/2/4/8-bar loop controls plus loop exit.
+- Per-deck live filter and echo controls.
+- Separate cue bus with output-device selection where the browser exposes `HTMLMediaElement.setSinkId`; cue monitoring requires a compatible browser and a distinct output device.
+- Local master recording through `MediaRecorder`, saved as WebM/Opus when supported.
+- Rolling transition history and live beat-phase marker.
+- Recording and headphone routing are browser/device dependent and need real hardware testing.
+
+## Phase 5 — Advanced Stem Performance (initial implementation)
+
+- Import pre-separated local stems into either deck using filenames containing `vocals`, `drums`, `bass`, or `other`.
+- Independent stem faders allow vocal-only, instrumental-only, and cross-deck mashup workflows when matching stem files are supplied.
+- Stem playback follows deck seek/play/pause and the deck's tempo/time-stretch path remains available for the main deck.
+- This is **stem playback/mixing, not automatic stem separation**. No model is embedded or downloaded to split a stereo song into vocals/drums/bass. Automatic local Demucs/HTDemucs-class separation, vocal activity detection, and confidence-aware vocal clash avoidance remain the next Phase 5 engineering tasks.
+- For a mashup, load the instrumental stem pack on one deck and vocals on the other; reduce the unwanted stem faders and use the crossfader/EQ to blend. Both decks need pre-separated source files.
+
+## Updated validation checklist
+
+1. Test live meters, hot cues, loop timing, FX and recording in desktop Chrome/Edge over HTTPS.
+2. Select a second audio output and verify cue monitoring on headphones; default output mirroring is not equivalent to isolated headphone cue.
+3. Import a pre-separated stem pack with filenames such as `track_vocals.wav`, `track_drums.wav`, `track_bass.wav`, and `track_other.wav`.
+4. Confirm stem playback remains aligned after seek, pause/resume and transition.
+5. Test CPU/memory use with long WAV/FLAC stem files and verify recording output on the target browser.
