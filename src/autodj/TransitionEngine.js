@@ -1,7 +1,7 @@
 export class TransitionEngine {
   constructor(mixer, decks, onComplete) {
     this.mixer = mixer; this.decks = decks; this.onComplete = onComplete;
-    this.timer = null; this.running = false; this.token = 0;
+    this.timer = null; this.running = false; this.token = 0; this.vocalProtection = true;
   }
 
   alignedCue(track, requestedCue = 0) {
@@ -65,10 +65,15 @@ export class TransitionEngine {
       fxA.setEcho(echo); fxB.setEcho(0);
       fxA.setTransitionFilter(20); fxB.setTransitionFilter(filter ? 18000 : 20);
 
+      let vocalClashes = 0;
       const step = now => {
         if (!this.running || token !== this.token) return;
         const elapsedMs = now - start;
         const p = Math.min(1, elapsedMs / duration);
+        const outgoingVoice = from.stemMixer?.hasVocals && from.stemMixer.isVocalActive(from.currentTime);
+        const incomingVoice = to.stemMixer?.hasVocals && to.stemMixer.isVocalActive(to.currentTime);
+        const clash = this.vocalProtection && outgoingVoice && incomingVoice;
+        if (clash) { vocalClashes++; to.stemMixer.setAutoDuck(.12); } else to.stemMixer?.setAutoDuck(1);
         const eased = p * p * (3 - 2 * p);
         this.mixer.setCrossfader(startValue + (endValue - startValue) * eased, .02);
 
@@ -98,13 +103,14 @@ export class TransitionEngine {
         else {
           if (loopStarted && !remixEnded) from.stopLoop(.025);
           from.setMediaLevel(1, .02);
+          from.stemMixer?.setAutoDuck(1); to.stemMixer?.setAutoDuck(1);
           from.stop(); from.setEQ(0, 0); to.setEQ(0, 0); from.setRate(1);
           fxA.setEcho(0); fxB.setEcho(0);
           fxA.setTransitionFilter(20); fxB.setTransitionFilter(20);
           this.running = false;
           this.onComplete?.(fromId, toId, {
             matched, style: plan.style, plan, cue,
-            remix: plan.remix || 'none', loopStarted
+            remix: plan.remix || 'none', loopStarted, vocalProtection: this.vocalProtection, vocalClashes
           });
         }
       };
@@ -113,7 +119,7 @@ export class TransitionEngine {
     } catch (error) {
       this.running = false;
       if (loopStarted) from.stopLoop(.01);
-      from.setMediaLevel(1, .01);
+      from.setMediaLevel(1, .01); from.stemMixer?.setAutoDuck(1); to.stemMixer?.setAutoDuck(1);
       to.pause(); to.setRate(1);
       throw error;
     }
@@ -124,7 +130,7 @@ export class TransitionEngine {
     if (this.timer) cancelAnimationFrame(this.timer);
     this.timer = null;
     for (const deck of Object.values(this.decks)) {
-      deck.stopLoop(0); deck.setMediaLevel(1, .01);
+      deck.stopLoop(0); deck.setMediaLevel(1, .01); deck.stemMixer?.setAutoDuck(1);
       deck.setEQ(0, 0);
       deck.effects.setEcho(0);
       deck.effects.setTransitionFilter(20);
