@@ -8,7 +8,8 @@ export class AutoDJ {
     this.onState = onState; this.onActiveDeck = onActiveDeck;
     this.selector = new TrackSelector(); this.transitionAI = new TransitionAI(); this.active = 'A'; this.enabled = false;
     this.transitioning = false; this.history = [];
-    this.transitions = new TransitionEngine(mixer, decks, (from, to) => {
+    this.transitions = new TransitionEngine(mixer, decks, (from, to, result) => {
+      if (result?.style) this.transitionAI.learn(result.style, result.matched ? 0.72 : 0.48);
       this.active = to; this.transitioning = false;
       const id = this.decks[to].track?.id;
       if (id) this.history.push(id);
