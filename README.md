@@ -1,6 +1,6 @@
-# AUTO DJ 2.0
+# AUTO DJ 2.1
 
-An AI-free browser DJ console built with a modular JavaScript architecture.
+A browser-based autonomous DJ console. Load local audio and let the engine manage deck rotation, tempo matching, phrase-aware transitions and EQ.
 
 ## Run locally
 
@@ -13,34 +13,40 @@ npm run dev
 
 Open the local Vite URL (normally http://localhost:5173). Build with `npm run build` and preview with `npm run preview`.
 
-## Architecture
-
-- `src/audio/`: AudioEngine, Deck, Mixer, Effects and BeatAnalyzer.
-- `src/autodj/`: AutoDJ orchestration, BPM-aware TrackSelector and TransitionEngine.
-- `src/library/`: MusicLibrary, IndexedDB Storage and Playlists.
-- `src/components/`: DeckUI, Waveform and LibraryUI.
-- `src/styles/`: base, console and responsive styles.
-
 ## Implemented
 
-- Dual local-audio decks with independent play, pause, stop and cue controls.
-- Persistent IndexedDB music library.
-- Conventional signal-processing BPM estimate (not AI/ML).
-- BPM-proximity selection and optional shuffle.
-- Autonomous end-of-track handoff with eased equal-power crossfade and explicit deck-side routing.
-- Per-deck 3-band EQ, master level and master compressor.
-- Responsive console interface.
+- Dual local-audio decks, persistent IndexedDB library and independent manual deck controls.
+- Local BPM and beat-phase estimation using conventional signal processing.
+- On-device chroma-based musical key estimation with a confidence score.
+- Track selection that considers tempo, harmonic compatibility and recent-play history.
+- Phrase-window scheduling at the next estimated 8-bar boundary, with an end-of-track fallback.
+- Conservative tempo matching through SoundTouchJS AudioWorklet, designed to preserve pitch while changing tempo.
+- Automatic bass EQ handoff and equal-power crossfading.
+- Native browser pitch-preservation fallback when AudioWorklet is unavailable.
+- 3-band deck EQ, master level and master compressor.
 
-## Current limitations
+## Audio engine notes
 
-This is a modular V2 foundation, not yet a fully club-grade DJ system. Beat-grid and phrase alignment, pitch-preserving time stretch, decoded waveform rendering, key detection, hot cues, loops and advanced effects remain future work. BPM estimates are approximate. The transition is a timed crossfade, not phrase-aware mixing. Browser audio codec support varies.
+The SoundTouchJS processor runs locally in the browser's AudioWorklet thread. Audio files are decoded and analysed on the device; no music is uploaded. The worklet requires a secure context (HTTPS or localhost) and a browser with AudioWorklet support. If it cannot load, the app falls back to native media-element pitch preservation. Tempo matching is deliberately limited to a small range to reduce audible artifacts.
 
-Spotify is not an audio input to the mixing engine. It may be integrated separately for discovery or metadata through official APIs, subject to their rules; mixing uses local audio files.
+BPM, beat phase and key are estimates, not guaranteed DJ-grade beat grids or harmonic labels. Phrase boundaries are inferred from the estimated beat grid. Real-world performance must be tested with a diverse local music library and listening sessions.
+
+## Known next steps
+
+- Stronger downbeat and phrase-structure recognition (intro, verse, chorus, outro).
+- Waveform beat-grid overlays, hot cues and looping.
+- More transition styles and FX (echo, filter sweeps and reverb).
+- Automated listening tests and broader browser/device QA.
+- Better key estimation and confidence-aware harmonic mixing.
+
+## Music sources
+
+Local audio files are the mixing source. Spotify is not captured or mixed; any future Spotify integration must use official discovery/metadata APIs and respect their playback and developer terms.
 
 ## Data and privacy
 
-Audio blobs and library metadata stay in this browser's IndexedDB. Clearing site data can erase the library. There is no cloud database or audio upload.
+Audio blobs and analysis metadata stay in this browser's IndexedDB. Clearing site data can erase the library. No cloud database or audio upload is used.
 
 ## Stack
 
-Vite, vanilla JavaScript, Web Audio API, HTML Audio and IndexedDB. No AI or machine-learning service.
+Vite, vanilla JavaScript, Web Audio API, AudioWorklet, SoundTouchJS and IndexedDB.
