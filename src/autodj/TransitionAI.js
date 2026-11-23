@@ -2,11 +2,11 @@
 export class TransitionAI {
   constructor(){
     this.recipes=[
-      {style:'phrase-blend',filter:false,echo:0,bass:true,bars:8},
-      {style:'filter-rise',filter:true,echo:0,bass:false,bars:8},
-      {style:'echo-out',filter:false,echo:.34,bass:false,bars:8},
-      {style:'filter-echo',filter:true,echo:.25,bass:false,bars:8},
-      {style:'energy-lift',filter:true,echo:0,bass:true,bars:16},
+      {style:'phrase-blend',filter:false,echo:0,bass:true,bars:8,loopRepeat:true},
+      {style:'filter-rise',filter:true,echo:0,bass:false,bars:8,loopRepeat:true},
+      {style:'echo-out',filter:false,echo:.34,bass:false,bars:8,loopRepeat:true},
+      {style:'filter-echo',filter:true,echo:.25,bass:false,bars:8,loopRepeat:true},
+      {style:'energy-lift',filter:true,echo:0,bass:true,bars:16,loopRepeat:true},
       {style:'drop-blend',filter:false,echo:.12,bass:true,bars:8}
     ];
     this.history=new Map();this.exploration=.3;
@@ -36,7 +36,7 @@ export class TransitionAI {
     return {
       style:picked.style,confidence:Math.max(0,Math.min(1,picked.score)),
       reason:explore?'testing a new effect combination':'best musical-fit recipe',
-      bars:picked.bars,filterSweep:picked.filter,echo:picked.echo,bassSwap:picked.bass,
+      bars:picked.bars,filterSweep:picked.filter,echo:picked.echo,bassSwap:picked.bass,loopRepeat:picked.loopRepeat,
       incomingCue:alignedCue,usesDrop:!!(picked.style==='drop-blend'&&drop),
       energyMatch:Math.round((1-Math.abs(outEnergy-inEnergy))*100)
     };
