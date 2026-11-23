@@ -19,5 +19,5 @@ export class Deck {
  setStemLevel(role,value){this.stemMixer.setLevel(role,value);}
  clearStemPack(){this.stemMixer.clear();}
  get currentTime(){return this.audio.currentTime||0;}get duration(){return this.audio.duration||this.track?.duration||0;}get remaining(){return Math.max(0,this.duration-this.currentTime);}
- dispose(){this.stop();if(this.url)URL.revokeObjectURL(this.url);this.stopLoop(0);this.source.disconnect();this.mediaGain.disconnect();this.loopGain.disconnect();this.cueSend.disconnect();this.analyser.disconnect();if(this.timeStretch)this.timeStretch.disconnect();this.effects.disconnect();this.gain.disconnect();}
+ dispose(){this.stop();this.stemMixer?.clear();if(this.url)URL.revokeObjectURL(this.url);this.stopLoop(0);this.source.disconnect();this.mediaGain.disconnect();this.loopGain.disconnect();this.cueSend.disconnect();this.analyser.disconnect();if(this.timeStretch)this.timeStretch.disconnect();this.effects.disconnect();this.gain.disconnect();}
 }
