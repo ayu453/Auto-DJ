@@ -5,9 +5,9 @@ export class MusicLibrary {
   constructor() { this.tracks = []; }
   async load() {
     this.tracks = await storage.getAllTracks();
-    // Upgrade older locally stored tracks with the new energy/section map.
+    // Rebuild local analysis metadata whenever the beat-grid algorithm changes.
     for (const track of this.tracks) {
-      if ((track.analysisVersion || 0) < 4 && track.blob) {
+      if ((track.analysisVersion || 0) < 5 && track.blob) {
         try {
           const info = await analyzeFile(track.blob);
           Object.assign(track, {
