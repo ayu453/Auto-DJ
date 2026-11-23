@@ -8,9 +8,9 @@ export function mountProConsole(root,{decks,engine,toast}){
  panel.addEventListener('click',e=>{
   const s=e.target.closest('[data-set]');if(s){const id=s.dataset.set,i=+s.dataset.i,d=decks[id];if(!d.track)return toast('Load a track first.');cues[id][i]=d.currentTime;s.textContent='CUE '+(i+1)+' · '+fmt(d.currentTime);$('[data-go="'+id+'"][data-i="'+i+'"]',panel).disabled=false;return;}
   const g=e.target.closest('[data-go]');if(g){const t=cues[g.dataset.go][+g.dataset.i];if(t!==null)decks[g.dataset.go].setCurrentTime(t);return;}
-  const l=e.target.closest('[data-loop]');if(l){const id=l.dataset.loop,d=decks[id],bars=+l.dataset.bars;if(!d.track||!d.loopBuffer)return toast('Wait for track decoding.');const len=60/(d.track.bpm||120)*4*bars;if(d.startLoop(d.currentTime,len,1,.72))d.setMediaLevel(.62,.02);return;}
+  const l=e.target.closest('[data-loop]');if(l){const id=l.dataset.loop,d=decks[id],bars=+l.dataset.bars;if(!d.track||!d.loopBuffer)return toast('Wait for track decoding.');const beat=60/(d.track.bpm||120),offset=d.track.beatOffset||0,start=offset+Math.max(0,Math.round((d.currentTime-offset)/beat))*beat,len=beat*4*bars;if(d.startLoop(start,len,1,.72))d.setMediaLevel(.62,.02);return;}
   const off=e.target.closest('[data-loop-stop]');if(off){const d=decks[off.dataset.loopStop];d.stopLoop(.04);d.setMediaLevel(1,.04);return;}
-  const m=e.target.closest('[data-monitor]');if(m){for(const id of ['A','B'])decks[id].cueSend.gain.setTargetAtTime(id===m.dataset.monitor?1:0,engine.context.currentTime,.02);$('#cueStatus',panel).textContent='Deck '+m.dataset.monitor+' cue sent to headphone output.';}
+  const m=e.target.closest('[data-monitor]');if(m){audio.play().catch(()=>{});for(const id of ['A','B'])decks[id].cueSend.gain.setTargetAtTime(id===m.dataset.monitor?1:0,engine.context.currentTime,.02);$('#cueStatus',panel).textContent='Deck '+m.dataset.monitor+' cue sent to headphone output.';}
  });
  panel.querySelectorAll('[data-filter]').forEach(x=>x.addEventListener('input',()=>decks[x.dataset.filter].effects.setTransitionFilter(+x.value)));
  panel.querySelectorAll('[data-echo]').forEach(x=>x.addEventListener('input',()=>decks[x.dataset.echo].effects.setEcho(+x.value/100)));
