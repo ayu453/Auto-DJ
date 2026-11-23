@@ -3,3 +3,5 @@
 
 .seek-slider{display:block;width:100%;height:16px;margin:8px 0 2px;accent-color:#a78bfa;cursor:pointer;touch-action:pan-y}.seek-slider:disabled{opacity:.35;cursor:not-allowed}
 .remix-live{display:inline-block!important;margin-top:10px!important;padding:6px 9px;border:1px solid #5b4b8b;border-radius:7px;background:#211b35;color:#d9ccff!important;font-size:9px!important;font-weight:900;letter-spacing:1.2px}
+
+.brain-live{display:inline-block!important;margin-top:7px!important;padding:6px 9px;border:1px solid #365b63;border-radius:7px;background:#14272b;color:#a8e4db!important;font-size:9px!important;font-weight:900;letter-spacing:1px;line-height:1.6}
