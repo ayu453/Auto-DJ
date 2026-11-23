@@ -10,8 +10,15 @@ export class MusicLibrary {
       if (!file.type.startsWith('audio/') && !/\.(mp3|wav|flac|m4a|aac|ogg|opus|aiff?)$/i.test(file.name)) continue;
       try {
         const info = await analyzeFile(file);
-        const track = { id: makeId(), name: titleFrom(file.name), fileName: file.name, artist: '', blob: file, duration: info.duration, bpm: info.bpm, addedAt: Date.now() };
+        const track = {
+          id: makeId(), name: titleFrom(file.name), fileName: file.name, artist: '',
+          blob: file, duration: info.duration, bpm: info.bpm,
+          beatOffset: info.beatOffset, beatConfidence: info.beatConfidence,
+          beatInterval: info.beatInterval, phraseLength: info.phraseLength,
+          analysisVersion: info.analysisVersion, addedAt: Date.now()
+        };
         await storage.putTrack(track); this.tracks.push(track); added.push(track);
+        onProgress?.({ file, track });
       } catch (error) { onProgress?.({ file, error }); }
     }
     return added;
