@@ -83,18 +83,49 @@ Vite, vanilla JavaScript, Web Audio API, AudioWorklet, SoundTouchJS and IndexedD
 - Rolling transition history and live beat-phase marker.
 - Recording and headphone routing are browser/device dependent and need real hardware testing.
 
-## Phase 5 — Advanced Stem Performance (initial implementation)
+## Phase 5 — AI Stem Intelligence & Live Mashups
 
-- Import pre-separated local stems into either deck using filenames containing `vocals`, `drums`, `bass`, or `other`.
-- Independent stem faders allow vocal-only, instrumental-only, and cross-deck mashup workflows when matching stem files are supplied.
-- Stem playback follows deck seek/play/pause and the deck's small tempo adjustment range. Stem files currently use playback-rate changes (which can shift pitch slightly); SoundTouch pitch preservation is not yet applied to each independent stem.
-- This is **stem playback/mixing, not automatic stem separation**. No model is embedded or downloaded to split a stereo song into vocals/drums/bass. Automatic local Demucs/HTDemucs-class separation, vocal activity detection, and confidence-aware vocal clash avoidance remain the next Phase 5 engineering tasks.
-- For a mashup, load the instrumental stem pack on one deck and vocals on the other; reduce the unwanted stem faders and use the crossfader/EQ to blend. Both decks need pre-separated source files.
+### Automatic on-device separation
 
-## Updated validation checklist
+- Each loaded deck can run HTDemucs source separation locally in a module worker using ONNX Runtime Web.
+- Produces four independent stems: vocals, drums, bass and other.
+- Uses the single-model four-stem HTDemucs ONNX export hosted by StemSplit on Hugging Face. The model is approximately 166 MB and is downloaded on first use; the browser may cache it for later sessions.
+- Audio is decoded and processed in 7.8-second chunks with 25% overlap and overlap-add reconstruction. Audio is not uploaded to an application server.
+- WebGPU is preferred when available, with WASM fallback. Cross-origin isolation headers are enabled to allow multi-threaded WASM where the browser supports it.
+- Browser memory safety limit: six minutes per input track. Long tracks and older PCs may still require substantial RAM; use a desktop browser and close memory-heavy tabs before separating.
+- Separation is offline after the model has loaded, but first model download requires an internet connection.
 
-1. Test live meters, hot cues, loop timing, FX and recording in desktop Chrome/Edge over HTTPS.
-2. Select a second audio output and verify cue monitoring on headphones; default output mirroring is not equivalent to isolated headphone cue.
-3. Import a pre-separated stem pack with filenames such as `track_vocals.wav`, `track_drums.wav`, `track_bass.wav`, and `track_other.wav`.
-4. Confirm stem playback remains aligned after seek, pause/resume and transition.
-5. Test CPU/memory use with long WAV/FLAC stem files and verify recording output on the target browser.
+### Live stem performance
+
+- Separate four-stem packs can be generated for either deck and mixed independently with vocals/drums/bass/other faders.
+- Manual pre-separated stem import remains available.
+- One-touch mashup presets: Deck A instrumental + Deck B vocals, or the reverse.
+- Vocal activity is estimated from the isolated vocal stem's short-window RMS envelope.
+- Automatic vocal clash protection checks both decks during a transition and ducks the incoming vocal stem while both vocal parts are active, then restores its fader level.
+- Stem levels, activity maps and playback buffers are session-local; generated stems are not persisted to IndexedDB after reload.
+- Deck seek, play, pause, stop and tempo-rate changes are reflected in the stem playback path. Independent stems currently follow playback-rate changes; pitch-preserving SoundTouch processing for each stem is not yet implemented.
+
+### Phase 5 limitations
+
+- HTDemucs is a source-separation model, not a perfect multitrack studio stem export. Bleed and artifacts can remain, especially in dense mixes.
+- Vocal activity detection is a local signal-level estimate on the separated vocal stem, not lyric/speech recognition. Reverb, backing vocals and quiet singing can affect its accuracy.
+- Vocal protection only operates when both decks have AI-separated or imported vocal stems.
+- Model inference can take longer than the track duration on some CPUs. WebGPU support varies by browser and graphics hardware.
+- This does not upload music or connect to Spotify audio.
+
+### Phase 5 validation checklist
+
+1. Load a local track on Deck A and press **AI SEPARATE CURRENT TRACK**. The first run downloads the model; later runs may use the browser cache.
+2. Confirm four stem faders appear and each can be changed independently.
+3. Repeat on Deck B, then test both one-touch mashup presets.
+4. Enable vocal clash protection and test a transition where both decks have vocals; listen for incoming-vocal ducking and smooth recovery.
+5. Seek, pause/resume, change tempo slightly, and verify stem alignment against the original track.
+6. Test with a long track on the target PC and monitor memory, browser responsiveness and audio quality.
+
+### AI model and runtime references
+
+- HTDemucs ONNX model and browser inference guide: https://github.com/StemSplit/demucs-onnx
+- Browser model distribution: https://huggingface.co/StemSplitio/htdemucs-onnx
+- ONNX Runtime Web: https://onnxruntime.ai/
+
+The model and ONNX runtime are third-party dependencies. Their own licenses and terms apply.
