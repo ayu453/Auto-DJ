@@ -85,7 +85,7 @@ export class Deck {
     source.connect(this.loopGain);
     this.loopSource = source;
     this.loopGain.gain.setTargetAtTime(Math.max(0, Math.min(1, level)), this.context.currentTime, .015);
-    source.start();
+    source.start(0, safeStart);
     return true;
   }
   stopLoop(ramp = .06) {
