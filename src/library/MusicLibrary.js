@@ -20,7 +20,7 @@ export class MusicLibrary {
           beatOffset: info.beatOffset, beatConfidence: info.beatConfidence,
           beatInterval: info.beatInterval, phraseLength: info.phraseLength,
           key: info.key, keyConfidence: info.keyConfidence,
-          analysisVersion: info.analysisVersion, addedAt: Date.now()
+          structure: info.structure, analysisVersion: info.analysisVersion, addedAt: Date.now()
         };
         await storage.putTrack(track); this.tracks.push(track); added.push(track);
         onProgress?.({ file, track });
