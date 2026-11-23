@@ -43,7 +43,8 @@ export class SessionBrain {
         const distance = Math.min(Math.abs(ratio - 1), Math.min(Math.abs(ratio - 2), Math.abs(ratio - .5)) * .9);
         tempo = clamp(1 - distance * 4);
       }
-      const harmony = current?.key && track?.key ? keyCompatibility(current.key, track.key) : .5;
+      const harmonyPenalty = current?.key && track?.key ? keyCompatibility(current.key, track.key) : .5;
+      const harmony = clamp(1 - harmonyPenalty);
       const currentEnergy = energyOf(current), nextEnergy = energyOf(track);
       const energyFit = nextEnergy === null ? .45 : clamp(1 - Math.abs(nextEnergy - target) * 1.8);
       const flow = currentEnergy === null || nextEnergy === null ? .5 : clamp(1 - Math.abs(nextEnergy - currentEnergy) * 1.35);
