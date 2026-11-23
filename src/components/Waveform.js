@@ -1,11 +1,2 @@
-export function renderWaveform(element) {
-  element.replaceChildren();
-  const fragment = document.createDocumentFragment();
-  for (let i = 0; i < 70; i++) {
-    const bar = document.createElement('i'); bar.className = 'wavebar';
-    const height = 8 + Math.abs(Math.sin(i * 2.17) * Math.cos(i * .31)) * 42;
-    bar.style.height = height + 'px'; bar.style.left = (i / 70 * 100) + '%';
-    fragment.append(bar);
-  }
-  element.append(fragment);
-}
+export function renderWaveform(element){element.replaceChildren();const frag=document.createDocumentFragment();for(let i=0;i<70;i++){const bar=document.createElement('i');bar.className='wavebar';bar.style.height='4px';bar.style.left=(i/70*100)+'%';frag.append(bar);}element.append(frag);}
+export function updateWaveform(element,deck){if(!element||!deck)return;const data=deck.getWaveformData();const bars=element.children;if(!bars.length)return;for(let i=0;i<bars.length;i++){const index=Math.floor(i/bars.length*data.length),v=data[index]/255;bars[i].style.height=(4+v*58)+'px';bars[i].style.opacity=String(.45+v*.55);}const bpm=Number(deck.track?.bpm)||0;let marker=element.querySelector('.beat-marker');if(!marker){marker=document.createElement('i');marker.className='beat-marker';element.append(marker);}marker.style.display=bpm?'block':'none';if(bpm){const beat=60/bpm,phase=((deck.currentTime-(deck.track?.beatOffset||0))%beat+beat)%beat;marker.style.left=(phase/beat*100)+'%';}}
