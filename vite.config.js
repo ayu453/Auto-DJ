@@ -1,2 +1,11 @@
 import { defineConfig } from 'vite';
-export default defineConfig({base:'./',server:{port:5173,strictPort:true},build:{target:'es2022'}});
+const isolationHeaders={
+ 'Cross-Origin-Opener-Policy':'same-origin',
+ 'Cross-Origin-Embedder-Policy':'require-corp'
+};
+export default defineConfig({
+ base:'./',
+ server:{port:5173,strictPort:true,headers:isolationHeaders},
+ preview:{headers:isolationHeaders},
+ build:{target:'es2022'}
+});
