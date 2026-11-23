@@ -1,5 +1,6 @@
 import { TrackSelector } from './TrackSelector.js';
 import { TransitionEngine } from './TransitionEngine.js';
+
 export class AutoDJ {
   constructor({ decks, mixer, getTracks, onState, onActiveDeck }) {
     this.decks = decks; this.mixer = mixer; this.getTracks = getTracks;
@@ -15,12 +16,10 @@ export class AutoDJ {
   async start() {
     const tracks = this.getTracks();
     if (tracks.length < 2) throw new Error('Add at least two tracks to start Auto DJ.');
-    await this.mixer.resume(); this.enabled = true; this.transitioning = false;
+    await this.mixer.resume();
+    this.enabled = true; this.transitioning = false;
     let current = this.decks[this.active];
-    if (!current.track) {
-      const first = tracks[Math.floor(Math.random() * tracks.length)];
-      current.load(first);
-    }
+    if (!current.track) current.load(tracks[Math.floor(Math.random() * tracks.length)]);
     this.mixer.setDeckSide(this.active, .001);
     await current.play();
     await this.prepareNext(this.active === 'A' ? 'B' : 'A');
@@ -32,16 +31,31 @@ export class AutoDJ {
     const next = this.selector.select(this.getTracks(), current);
     if (next) this.decks[deckId].load(next);
   }
+  nextPhraseTime(deck) {
+    const bpm = deck.track?.bpm || 0;
+    const beatOffset = Number(deck.track?.beatOffset) || 0;
+    if (!bpm || (deck.track?.beatConfidence || 0) < .08) return null;
+    const beat = 60 / bpm;
+    const phrase = beat * 32; // 8 bars in 4/4
+    const elapsed = Math.max(0, deck.currentTime - beatOffset);
+    return beatOffset + (Math.floor(elapsed / phrase) + 1) * phrase;
+  }
   async tick() {
     if (!this.enabled || this.transitioning) return;
     const current = this.decks[this.active];
     if (!current.track) return;
-    if (current.remaining <= Math.min(18, Math.max(8, current.duration * .2))) {
-      const nextId = this.active === 'A' ? 'B' : 'A';
-      if (!this.decks[nextId].track) await this.prepareNext(nextId);
-      if (!this.decks[nextId].track) { this.stop(); return; }
+    const nextId = this.active === 'A' ? 'B' : 'A';
+    if (!this.decks[nextId].track) await this.prepareNext(nextId);
+    if (!this.decks[nextId].track) { this.stop(); return; }
+
+    const remaining = current.remaining;
+    const phraseTime = this.nextPhraseTime(current);
+    const phraseDue = phraseTime !== null && phraseTime <= current.duration - 2 && current.currentTime >= phraseTime - .12;
+    const fallbackDue = remaining <= 10;
+    // Prefer the next 8-bar phrase boundary; fall back near the end for uncertain analyses.
+    if (phraseDue || fallbackDue) {
       this.transitioning = true;
-      const ok = await this.transitions.transition(this.active, nextId, Math.min(12, Math.max(5, current.remaining)));
+      const ok = await this.transitions.transition(this.active, nextId, Math.min(12, Math.max(5, remaining)));
       if (!ok) this.transitioning = false;
     }
   }
