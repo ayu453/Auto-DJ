@@ -61,7 +61,6 @@ export async function analyzeFile(file) {
     const sortedEnergy = [...energy].sort((x,y)=>x-y);
     const medianEnergy = sortedEnergy[Math.floor(sortedEnergy.length*.5)] || 0;
     const maxEnergy = sortedEnergy[Math.floor(sortedEnergy.length*.9)] || 0;
-    const levelAt = (fraction) => energy[Math.min(energy.length-1,Math.floor(fraction*energy.length))] || 0;
     const introThreshold = Math.max(medianEnergy*.72, maxEnergy*.28);
     let introEnd = 0;
     for (let i=0;i<Math.min(energy.length,Math.floor(energy.length*.3));i++) {
@@ -94,7 +93,8 @@ export async function analyzeFile(file) {
       beatInterval: beatSeconds,
       phraseLength: beatSeconds ? beatSeconds * 32 : 0,
       ...keyInfo,
-      analysisVersion: 3
+      structure,
+      analysisVersion: 4
     };
   } finally {
     await context.close();
