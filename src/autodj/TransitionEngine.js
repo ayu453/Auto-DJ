@@ -15,6 +15,15 @@ export class TransitionEngine {
     const duration=Math.max(5,Math.min(18,a?60/a*beatsPerBar*bars:seconds))*1000,start=performance.now();
     const startValue=fromId==='A'?0:1,endValue=toId==='A'?0:1;
     const fxA=from.effects,fxB=to.effects,filter=!!plan.filterSweep,echo=Math.max(0,Math.min(.4,Number(plan.echo)||0));
+    // A real one-bar audio-buffer repeat: the outgoing groove is sampled and
+    // looped over the transition, while the original deck is gently ducked.
+    const beatSeconds = a ? 60 / a : Number(from.track.beatInterval) || .5;
+    const barSeconds = beatSeconds * 4;
+    const elapsed = Math.max(0, from.currentTime - (Number(from.track.beatOffset) || 0));
+    const loopBar = Math.max(0, Math.floor(elapsed / barSeconds) - 1);
+    const loopStart = (Number(from.track.beatOffset) || 0) + loopBar * barSeconds;
+    const loopStarted = plan.loopRepeat !== false && from.startLoop(loopStart, barSeconds, 1, .72);
+    if (loopStarted) from.setMediaLevel(.48, .04);
     fxA.setEcho(echo);fxB.setEcho(0);
     fxA.setTransitionFilter(20);fxB.setTransitionFilter(filter?18000:20);
     const step=now=>{
@@ -29,6 +38,8 @@ export class TransitionEngine {
       if(echo)fxA.setEcho(echo*(1-p));
       if(p<1)this.timer=requestAnimationFrame(step);
       else{
+        from.stopLoop(.025);
+        from.setMediaLevel(1, .02);
         from.stop();from.setEQ(0,0);to.setEQ(0,0);from.setRate(1);
         fxA.setEcho(0);fxB.setEcho(0);fxA.setTransitionFilter(20);fxB.setTransitionFilter(20);
         this.running=false;this.onComplete?.(fromId,toId,{matched,style:plan.style,plan});
@@ -36,5 +47,5 @@ export class TransitionEngine {
     };
     this.timer=requestAnimationFrame(step);return true;
   }
-  cancel(){this.running=false;this.token++;if(this.timer)cancelAnimationFrame(this.timer);this.timer=null;}
+  cancel(){this.running=false;this.token++;if(this.timer)cancelAnimationFrame(this.timer);this.timer=null;for(const deck of Object.values(this.decks)){deck.stopLoop(0);deck.setMediaLevel(1,.01);}}
 }
