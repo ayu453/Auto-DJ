@@ -8,6 +8,7 @@ import { renderWaveform, updateWaveform } from './components/Waveform.js';
 import { updateDeckUI } from './components/DeckUI.js';
 import { renderLibrary } from './components/LibraryUI.js';
 import { mountProConsole } from './components/ProConsole.js';
+import { mountStemConsole } from './components/StemConsole.js';
 const $=(s,r=document)=>r.querySelector(s);
 export function mountApp(root){
  root.innerHTML=`<main class="shell"><header class="topbar"><div class="brand"><div class="logo">A</div><div><h1>AUTO DJ</h1><small>V3.1 · PRO CONSOLE</small></div></div><div class="status"><i class="dot"></i><span id="systemStatus">SYSTEM READY</span></div></header>
@@ -16,7 +17,7 @@ export function mountApp(root){
  <section class="panel mixer"><div><div class="mix-title">MASTER OUTPUT</div><div class="mix-control"><label>MASTER LEVEL <span id="masterVal">80%</span></label><input id="master" type="range" min="0" max="100" value="80"></div></div><div><div class="mix-title">CROSSFADER</div><div class="cross-wrap"><span>DECK A</span><input id="crossfader" type="range" min="0" max="100" value="50"><span>DECK B</span></div></div><div class="mix-actions"><button class="btn primary" id="startAuto">▶ START AUTO DJ</button><button class="btn" id="stopAuto">STOP AUTO</button></div></section>
  <section class="panel ai-lab"><div><div class="mix-title">AI DJ BRAIN · REMIX LAB</div><strong id="aiTransition">Waiting for mix…</strong><p id="aiReason">Track selection adapts to tempo, key, session energy and variety.</p><p class="remix-live" id="remixStatus">REMIX ENGINE STANDBY</p><p class="brain-live" id="brainStatus">AI BRAIN · WAITING FOR SESSION</p></div><div class="ai-tags"><span>QUANTIZED LOOPS</span><span>BEAT ROLLS</span><span>STUTTER FX</span><span>BUILD & DROP</span><span>ENERGY ARC</span><span>LEARNED RECIPES</span></div></section>
  <section class="panel library"><div class="library-head"><div><h3>MUSIC LIBRARY <span id="trackCount" class="muted">(0 tracks)</span></h3><small class="muted">Stored locally in this browser</small></div><div class="library-actions"><input id="search" class="search" placeholder="Search tracks…"><label class="btn primary" for="filePicker">＋ ADD MUSIC</label><input id="filePicker" class="file-input" type="file" accept="audio/*" multiple><button class="btn" id="shuffle">SHUFFLE</button></div></div><div class="track-list" id="trackList"><div class="empty">Your library is empty. Add local audio files to get started.</div></div><div class="notice">Audio and analysis stay on this device. Transition loops use excerpts from the full mix; automatic stem separation is not included yet.</div></section></main><div id="toast" hidden class="toast"></div>`;
- let engine,decks,mixer,autoDJ,proConsole,library=new MusicLibrary(),toastTimer;
+ let engine,decks,mixer,autoDJ,proConsole,stemConsole,library=new MusicLibrary(),toastTimer;
  const setStatus=t=>$('#systemStatus',root).textContent=t;
  const toast=msg=>{const el=$('#toast',root);el.textContent=msg;el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.hidden=true,3200);};
  const updateDeck=id=>updateDeckUI(id,decks[id],root);
@@ -25,7 +26,7 @@ export function mountApp(root){
  const setAutoState=enabled=>{$('#autoState',root).textContent=enabled?'● AUTO DJ ACTIVE':'● AUTO DJ STANDBY';setStatus(enabled?'AUTOMIX RUNNING':'SYSTEM READY');if(!enabled)$('#remixStatus',root).textContent='REMIX ENGINE STANDBY';};
  async function addFiles(files){let errors=0,done=0;await library.addFiles(files,r=>{if(r.error)errors++;else done++;setStatus('ANALYSING MUSIC '+(done+errors)+'/'+files.length);});refreshLibrary();setStatus('SYSTEM READY');toast(errors?done+' added · '+errors+' failed.':done+' tracks analysed and added.');}
  async function boot(){
-  try{engine=new AudioEngine();await engine.initialize();decks={A:new Deck('A',engine),B:new Deck('B',engine)};mixer=new Mixer(engine,decks.A,decks.B);proConsole=mountProConsole(root,{decks,engine,mixer,toast});
+  try{engine=new AudioEngine();await engine.initialize();decks={A:new Deck('A',engine),B:new Deck('B',engine)};mixer=new Mixer(engine,decks.A,decks.B);proConsole=mountProConsole(root,{decks,engine,mixer,toast});stemConsole=mountStemConsole(root,{decks,toast});
    autoDJ=new AutoDJ({decks,mixer,getTracks:()=>library.tracks,onState:setAutoState,onActiveDeck:updateDeck,onBrainUpdate:s=>{const d=s.decision;$('#brainStatus',root).textContent='AI BRAIN · ENERGY '+s.targetEnergy+'% · '+s.transitions+' TRANSITIONS · '+s.learnedRecipes+' LEARNED RECIPES'+(d?' · NEXT FIT '+d.score+'%':'');}});
    autoDJ.onTransition=plan=>{$('#aiTransition',root).textContent=plan.style.replaceAll('-',' ').toUpperCase();$('#aiReason',root).textContent=[plan.reason,Math.round(plan.confidence*100)+'% confidence',plan.bars+' mix bars','energy fit '+plan.energyMatch+'%'].join(' · ');const labels={'bar-loop':'BAR LOOP','beat-roll':'1-BEAT ROLL','stutter':'HALF-BEAT STUTTER','build-up':'BUILD-UP LOOP','drop-release':'DROP RELEASE'};$('#remixStatus',root).textContent=(labels[plan.remix]||'REMIX')+' · '+(plan.loopBars||1)+' BARS';root.dispatchEvent(new CustomEvent('autodj:transition',{detail:plan}));};
    await library.load();const setting=await storage.getSetting('shuffle');autoDJ.setShuffle(!!setting?.value);$('#shuffle',root).textContent=setting?.value?'SHUFFLE ON':'SHUFFLE';refreshLibrary();for(const id of ['A','B']){renderWaveform($('#wave'+id,root));updateDeck(id);}if(!engine.workletReady)toast('Browser time-stretch fallback active.');
@@ -38,7 +39,7 @@ export function mountApp(root){
   $('#startAuto',root).addEventListener('click',async()=>{try{await autoDJ.start();toast('AUTO DJ started.');}catch(e){toast(e.message);}});$('#stopAuto',root).addEventListener('click',()=>{autoDJ.stop();setAutoState(false);toast('AUTO DJ stopped.');});
   $('#shuffle',root).addEventListener('click',async()=>{const v=!autoDJ.selector.shuffle;autoDJ.setShuffle(v);await storage.putSetting('shuffle',v);$('#shuffle',root).textContent=v?'SHUFFLE ON':'SHUFFLE';});
   const frame=async()=>{if(!root.isConnected)return;for(const id of ['A','B']){updateDeck(id);updateWaveform($('#wave'+id,root),decks[id]);}await autoDJ.tick();requestAnimationFrame(frame);};requestAnimationFrame(frame);
-  window.addEventListener('beforeunload',()=>{autoDJ.destroy();proConsole?.destroy();decks.A.dispose();decks.B.dispose();engine.destroy();},{once:true});
+  window.addEventListener('beforeunload',()=>{autoDJ.destroy();proConsole?.destroy();stemConsole?.destroy();decks.A.dispose();decks.B.dispose();engine.destroy();},{once:true});
  }
  boot();
 }
