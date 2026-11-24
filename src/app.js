@@ -36,6 +36,21 @@ export function mountApp(root){
   $('#startAuto',root).addEventListener('click',async()=>{try{await autoDJ.start();toast('AUTO DJ started.');}catch(e){toast(e.message);}});$('#stopAuto',root).addEventListener('click',()=>{autoDJ.stop();setAutoState(false);toast('AUTO DJ stopped.');});
   $('#shuffle',root).addEventListener('click',async()=>{const v=!autoDJ.selector.shuffle;autoDJ.setShuffle(v);await storage.putSetting('shuffle',v);$('#shuffle',root).textContent=v?'SHUFFLE ON':'SHUFFLE';});
   const frame=async()=>{if(!root.isConnected)return;for(const id of ['A','B']){updateDeck(id);updateWaveform($('#wave'+id,root),decks[id]);decks[id].syncStemPlayback();}await autoDJ.tick();requestAnimationFrame(frame);};requestAnimationFrame(frame);
+  let recoveringAudio=false;
+  const recoverAudio=async()=>{
+   if(document.visibilityState==='hidden'||!autoDJ?.enabled||recoveringAudio)return;
+   recoveringAudio=true;
+   try{
+    await engine.resume();
+    const ids=autoDJ.transitions.running?['A','B']:[autoDJ.active];
+    for(const id of ids){const deck=decks[id];if(deck?.track&&deck.audio.paused)await deck.play();}
+    await autoDJ.tick();
+   }catch(error){console.warn('Audio resume recovery deferred',error);setStatus('TAP START TO RESUME AUDIO');}
+   finally{recoveringAudio=false;}
+  };
+  document.addEventListener('visibilitychange',recoverAudio);
+  window.addEventListener('pageshow',recoverAudio);
+  window.addEventListener('focus',recoverAudio);
   window.addEventListener('beforeunload',()=>{autoDJ.destroy();decks.A.dispose();decks.B.dispose();engine.destroy();},{once:true});
  }
  boot();
