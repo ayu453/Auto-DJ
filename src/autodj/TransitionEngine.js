@@ -39,7 +39,7 @@ export class TransitionEngine {
       const bars = Math.max(4, Math.min(16, Number(plan.bars) || 8));
       const duration = Math.max(5, Math.min(18,
         outgoingBpm ? (60 / outgoingBpm) * 4 * bars : seconds)) * 1000;
-      const start = performance.now();
+      // Use the Web Audio clock: unlike performance.now()/rAF, it pauses with a suspended audio context.\n      // This prevents a delayed background-tab frame from fast-forwarding the mix.\n      const start = this.mixer.engine.context.currentTime;
       const startValue = fromId === 'A' ? 0 : 1;
       const endValue = toId === 'A' ? 0 : 1;
       const fxA = from.effects, fxB = to.effects;
@@ -68,7 +68,7 @@ export class TransitionEngine {
       let vocalClashes = 0;
       const step = now => {
         if (!this.running || token !== this.token) return;
-        const elapsedMs = now - start;
+        const elapsedMs = Math.max(0, this.mixer.engine.context.currentTime - start) * 1000;
         const p = Math.min(1, elapsedMs / duration);
         const outgoingVoice = from.stemMixer?.hasVocals && from.stemMixer.isVocalActive(from.currentTime);
         const incomingVoice = to.stemMixer?.hasVocals && to.stemMixer.isVocalActive(to.currentTime);
